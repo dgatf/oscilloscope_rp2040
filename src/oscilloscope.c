@@ -18,6 +18,18 @@
 
 #include "oscilloscope.h"
 #include "string.h"
+#include "hardware/irq.h"
+#include "hardware/pwm.h"
+#include "hardware/dma.h"
+#include "hardware/adc.h"
+#include "pico/stdlib.h"
+#include "hardware/clocks.h"
+#include <hardware/regs/dreq.h>
+#include "bsp/board.h"
+#include "tusb_config.h"
+#include "protocol.h"
+
+#define CALIBRATION_GPIO 22
 
 static const uint dma_channel_adc_ = 0,
                   dma_channel_reload_adc_counter_ = 1,
@@ -69,7 +81,7 @@ void oscilloscope_start(void)
         true,  // enable DMA DREQ
         1,     // assert DREQ (and IRQ) at least 1 sample present
         false, // omit ERR bit (bit 15) since we have 8 bit reads.
-        true   // shift each sample to 8 bits when pushing to FIFO
+        false  // shift each sample to 8 bits when pushing to FIFO
     );
     adc_irq_set_enabled(true);
     irq_set_exclusive_handler(ADC_IRQ_FIFO, sample_handler);
@@ -100,7 +112,7 @@ void oscilloscope_start(void)
     channel_config_set_read_increment(&channel_config_adc, false);
     channel_config_set_dreq(&channel_config_adc, DREQ_ADC);
     channel_config_set_chain_to(&channel_config_adc, dma_channel_reload_adc_counter_); // reload counter when completed
-    dma_channel_set_irq0_enabled(dma_channel_adc_, true); // raise an interrupt when completed
+    dma_channel_set_irq0_enabled(dma_channel_adc_, true);                              // raise an interrupt when completed
     irq_set_exclusive_handler(DMA_IRQ_0, complete_handler);
     irq_set_enabled(DMA_IRQ_0, true);
     dma_channel_configure(
@@ -110,8 +122,8 @@ void oscilloscope_start(void)
         &adc_hw->fifo, // read address
         64,
         true);
-    
-    oscilloscope_set_channels(oscilloscope_config_.channel_mask);
+
+    oscilloscope_set_channels(0b01 /*oscilloscope_config_.channel_mask*/);
     adc_run(true);
 
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -152,7 +164,7 @@ void oscilloscope_set_calibration_frequency(uint freq)
     oscilloscope_config_.calibration_freq = freq;
     float clk_div = clock_get_hz(clk_sys) / freq / 65536.0;
     pwm_config config = pwm_get_default_config();
-    uint16_t wrap; 
+    uint16_t wrap;
     if (clk_div < 1)
     {
         clk_div = 1;
@@ -173,7 +185,7 @@ void oscilloscope_set_calibration_frequency(uint freq)
 
 static inline void sample_handler(void)
 {
-    protocol_sample_handler();
+    protocol_sample_handler(adc_hw->result);
 }
 
 static inline void complete_handler(void)

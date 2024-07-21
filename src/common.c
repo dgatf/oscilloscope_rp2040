@@ -17,6 +17,10 @@
  */
 
 #include "common.h"
+#include <stdio.h>
+#include <stdarg.h>
+#include "hardware/gpio.h"
+#include "hardware/uart.h"
 
 static char *buffer_;
 static bool *is_enabled_;
@@ -51,7 +55,6 @@ void debug(const char *format, ...)
         va_start(args, format);
         vsprintf(buffer_, format, args);
         uart_puts(uart0, buffer_);
-        
         va_end(args);
     }
 }
@@ -65,8 +68,7 @@ void debug_block(const char *format, ...)
         vsprintf(buffer_, format, args);
         uart_puts(uart0, buffer_);
         uart_tx_wait_blocking(uart0);
-
-        va_end(args);        
+        va_end(args);
     }
 }
 

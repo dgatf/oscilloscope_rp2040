@@ -17,30 +17,16 @@
  */
 
 #include "protocol.h"
+#include "tusb_config.h"
+#include "bsp/board.h"
+#include "string.h"
+#include "hardware/adc.h"
 
 static uint8_t *buffer_;
 static uint send_count_ = 0;
-volatile static uint sample_count_ = 0, channel_mask_;
+volatile static uint sample_count_ = 0, channel_mask_, channel_gain_factor_[2], ch2_enabled_;
 volatile static bool change_channels_ = false;
 volatile static command_t command_ = NONE;
-
-// transform = i / 2 * 33 / 50 + 127
-static const uint8_t transform_[] = {127, 127, 127, 127, 128, 128, 128, 128, 129, 129, 130, 130, 130, 130, 131, 131,
-                                     132, 132, 132, 132, 133, 133, 134, 134, 134, 134, 135, 135, 136, 136, 136, 136,
-                                     137, 137, 138, 138, 138, 138, 139, 139, 140, 140, 140, 140, 141, 141, 142, 142,
-                                     142, 142, 143, 143, 144, 144, 144, 144, 145, 145, 146, 146, 146, 146, 147, 147,
-                                     148, 148, 148, 148, 149, 149, 150, 150, 150, 150, 151, 151, 152, 152, 152, 152,
-                                     153, 153, 154, 154, 154, 154, 155, 155, 156, 156, 156, 156, 157, 157, 158, 158,
-                                     158, 158, 159, 159, 160, 160, 160, 160, 161, 161, 161, 161, 162, 162, 163, 163,
-                                     163, 163, 164, 164, 165, 165, 165, 165, 166, 166, 167, 167, 167, 167, 168, 168,
-                                     169, 169, 169, 169, 170, 170, 171, 171, 171, 171, 172, 172, 173, 173, 173, 173,
-                                     174, 174, 175, 175, 175, 175, 176, 176, 177, 177, 177, 177, 178, 178, 179, 179,
-                                     179, 179, 180, 180, 181, 181, 181, 181, 182, 182, 183, 183, 183, 183, 184, 184,
-                                     185, 185, 185, 185, 186, 186, 187, 187, 187, 187, 188, 188, 189, 189, 189, 189,
-                                     190, 190, 191, 191, 191, 191, 192, 192, 193, 193, 193, 193, 194, 194, 194, 194,
-                                     195, 195, 196, 196, 196, 196, 197, 197, 198, 198, 198, 198, 199, 199, 200, 200,
-                                     200, 200, 201, 201, 202, 202, 202, 202, 203, 203, 204, 204, 204, 204, 205, 205,
-                                     206, 206, 206, 206, 207, 207, 208, 208, 208, 208, 209, 209, 210, 210, 210, 210};
 
 static inline bool send_bulk(uint8_t *buffer);
 
@@ -104,69 +90,83 @@ bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_r
         case 0xE0: // set gain ch1
         {
             uint16_t value = data[0] | (data[1] << 8);
-            uint gain = 0;
             switch (value)
             {
             case 0x0701:
-                gain = 5000;
+                config->ch1_gain = 5000;
+                channel_gain_factor_[0] = 50;
                 break;
             case 0x0601:
-                gain = 2000;
+                config->ch1_gain = 2000;
+                channel_gain_factor_[0] = 50;
                 break;
             case 0x0501:
-                gain = 1000;
+                config->ch1_gain = 1000;
+                channel_gain_factor_[0] = 50;
                 break;
             case 0x0402:
-                gain = 500;
+                config->ch1_gain = 500;
+                channel_gain_factor_[0] = 25;
                 break;
             case 0x0305:
-                gain = 200;
+                config->ch1_gain = 200;
+                channel_gain_factor_[0] = 10;
                 break;
             case 0x020a:
-                gain = 100;
+                config->ch1_gain = 100;
+                channel_gain_factor_[0] = 5;
                 break;
             case 0x010a:
-                gain = 50;
+                config->ch1_gain = 50;
+                channel_gain_factor_[0] = 5;
                 break;
             case 0x000a:
-                gain = 20;
+                config->ch1_gain = 20;
+                channel_gain_factor_[0] = 5;
                 break;
             }
-            debug("\nCommand set gain ch1 (0x%X): %u", value, gain);
+            debug("\nCommand set gain ch1 (0x%X): %u", value, channel_gain_factor_[0]);
             break;
         }
         case 0xE1: // set gain ch2
         {
             uint16_t value = data[0] | (data[1] << 8);
-            uint gain = 0;
             switch (value)
             {
             case 0x0701:
-                gain = 5000;
+                config->ch2_gain = 5000;
+                channel_gain_factor_[1] = 50;
                 break;
             case 0x0601:
-                gain = 2000;
+                config->ch2_gain = 2000;
+                channel_gain_factor_[1] = 50;
                 break;
             case 0x0501:
-                gain = 1000;
+                config->ch2_gain = 1000;
+                channel_gain_factor_[1] = 50;
                 break;
             case 0x0402:
-                gain = 500;
+                config->ch2_gain = 500;
+                channel_gain_factor_[1] = 25;
                 break;
             case 0x0305:
-                gain = 200;
+                config->ch2_gain = 200;
+                channel_gain_factor_[1] = 10;
                 break;
             case 0x020a:
-                gain = 100;
+                config->ch2_gain = 100;
+                channel_gain_factor_[1] = 5;
                 break;
             case 0x010a:
-                gain = 50;
+                config->ch2_gain = 50;
+                channel_gain_factor_[1] = 5;
                 break;
             case 0x000a:
-                gain = 20;
+                config->ch2_gain = 20;
+                channel_gain_factor_[1] = 5;
                 break;
             }
-            debug("\nCommand set gain ch2 (0x%X): %u", value, gain);
+            debug("\nCommand set gain ch2 (0x%X): %u", value, channel_gain_factor_[1]);
             break;
         }
         case 0xE2: // set samplerate
@@ -235,12 +235,14 @@ bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_r
             {
                 config->channel_mask = 0b01;
                 channel_mask_ = 0b01;
+                ch2_enabled_ = false;
                 command_ = SET_CHANNELS;
             }
             else if (data[0] == 2)
             {
                 config->channel_mask = 0b11;
                 channel_mask_ = 0b11;
+                ch2_enabled_ = true;
                 command_ = SET_CHANNELS;
             }
             change_channels_ = true;
@@ -271,11 +273,27 @@ bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_r
     }
 }
 
-void protocol_sample_handler(void)
+void protocol_sample_handler(uint rawsample)
 {
     uint buffer_pos = sample_count_ % BUFFER_SIZE;
-    *(buffer_ + buffer_pos) = transform_[*(buffer_ + buffer_pos)];
+    uint channel = (sample_count_ % 2) * ch2_enabled_;
+    uint value = rawsample / channel_gain_factor_[channel] + 127;
+    if (value > 0xFF)
+        value = 0xFF;
+    *(buffer_ + buffer_pos) = value;
     sample_count_++;
+}
+
+void protocol_complete_handler(void)
+{
+    if (change_channels_)
+    {
+        if (channel_mask_ == 0b01)
+            adc_hw->cs = 0x1000B;
+        else
+            adc_hw->cs = 0x3000B;
+        change_channels_ = false;
+    }
 }
 
 void protocol_set_buffer(uint8_t *buffer)
@@ -294,22 +312,6 @@ void protocol_stop(void)
 {
     sample_count_ = 0;
     send_count_ = 0;
-}
-
-void protocol_complete_handler(void)
-{
-    if (change_channels_)
-    {
-        if (channel_mask_ == 0b01)
-        {
-            adc_hw->cs = 0x1000B;
-        }
-        else
-        {
-            adc_hw->cs = 0x3000B;
-        }
-        change_channels_ = false;
-    }
 }
 
 static inline bool send_bulk(uint8_t *buffer)

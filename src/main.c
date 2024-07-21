@@ -17,8 +17,15 @@
  */
 
 #include "bsp/board.h"
+#include "pico/stdlib.h"
+#include "hardware/clocks.h"
 #include "common.h"
 #include "oscilloscope.h"
+
+typedef enum gpio_config_t
+{
+    GPIO_DEBUG_ENABLE = 18 // If gpio is grounded: debug is enabled. If gpio os not grounded: debug is disabled
+} gpio_config_t;
 
 config_t config_;
 char debug_message_[DEBUG_BUFFER_SIZE];

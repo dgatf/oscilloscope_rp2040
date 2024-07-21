@@ -24,15 +24,29 @@ extern "C"
 {
 #endif
 
-#include "common.h"
-#include "string.h"
 #include "bsp/board.h"
-#include "tusb_config.h"
+#include "common.h"
 #include "oscilloscope.h"
+
+    typedef enum command_t
+    {
+        SETGAIN_CH1,
+        SETGAIN_CH2,
+        SET_SAMPLERATE,
+        START,
+        STOP,
+        SET_CHANNELS,
+        SET_COUPLING,
+        SET_CALIBRATION_FREQ,
+        GET_CALIBRATION,
+        RESET,
+        CAPTURE,
+        NONE
+    } command_t;
 
     void protocol_task(volatile oscilloscope_config_t *config);
     bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request, volatile oscilloscope_config_t *config);
-    void protocol_sample_handler(void);
+    void protocol_sample_handler(uint rawsample);
     void protocol_set_buffer(uint8_t *buffer);
     command_t protocol_read_command(void);
     void protocol_stop(void);

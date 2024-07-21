@@ -24,10 +24,7 @@ extern "C"
 {
 #endif
 
-#include <stdio.h>
-#include <stdarg.h>
-#include "hardware/uart.h"
-#include "hardware/gpio.h"
+#include "pico/types.h"
 
 // Debug buffer size
 #define DEBUG_BUFFER_SIZE 256
@@ -36,33 +33,6 @@ extern "C"
 #define DEVICE_NAME "RP2040 Oscilloscope"
 #define VERSION_MAYOR 0
 #define VERSION_MINOR 1
-
-    typedef enum state_t
-    {
-        IDLE,
-        RUNNING
-    } state_t;
-
-    typedef enum gpio_config_t
-    {
-        GPIO_DEBUG_ENABLE = 18 // If gpio is grounded: debug is enabled. If gpio os not grounded: debug is disabled
-    } gpio_config_t;
-
-    typedef enum command_t
-    {
-        SETGAIN_CH1,
-        SETGAIN_CH2,
-        SET_SAMPLERATE,
-        START,
-        STOP,
-        SET_CHANNELS,
-        SET_COUPLING,
-        SET_CALIBRATION_FREQ,
-        GET_CALIBRATION,
-        RESET,
-        CAPTURE,
-        NONE
-    } command_t;
 
     typedef struct config_t
     {
@@ -74,6 +44,8 @@ extern "C"
         uint channel_mask;
         uint samplerate;
         uint calibration_freq;
+        uint ch1_gain;
+        uint ch2_gain;
     } oscilloscope_config_t;
 
     void debug_init(uint baudrate, char *buffer, bool *is_enabled);

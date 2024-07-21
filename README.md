@@ -1,6 +1,6 @@
 # Oscilloscpe RP2040 - OpenHantek protocol
 
-This is an oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.com/OpenHantek/OpenHantek6022) protocol.
+An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.com/OpenHantek/OpenHantek6022) protocol.
 
 ## Specifications
 
@@ -9,16 +9,15 @@ This is an oscilloscope for the RP2040 that implements [OpenHantek6022](https://
 
 ## Usage
 
-Upload the binary [oscilloscope.uf2](https://drive.google.com/file/d/11BkBbbuAzuO7nqTozGVK0Epi27-wBS4m/view?usp=drive_link) to RP2040.
+Upload the binary [oscilloscope.uf2](#binaries) to RP2040.
 
-Open OpenHantek6022 (modifed version).
-
-OpenHantek6022 needs to be modified for the RP2040:
+Launch OpenHantek6022 (modifed version). OpenHantek6022 needs to be modified for the RP2040:
 
 - [OpenHantek6022 fork](https://github.com/dgatf/OpenHantek6022)
 
 You can build OpenHantek following the steps.  
-Or download the compiled binary for linux: [OpenHantek6022-RP2040.AppImage](https://drive.google.com/file/d/1I9Y5-4aRr0rqPs-FJkVPN9S7YzMd2pfn/view?usp=sharing). For linux you may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils).
+
+Or download the binary [OpenHantek6022-RP2040.AppImage](#binaries) for linux. You may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils). If using windows, ou need to build OpenHantek.
 
 ## Pins
 
@@ -51,7 +50,6 @@ If no GPIO is grounded, the default configuration is:
 
 - [oscilloscope.uf2](https://drive.google.com/file/d/11BkBbbuAzuO7nqTozGVK0Epi27-wBS4m/view?usp=drive_link)
 - Linux: [OpenHantek6022-RP2040.AppImage](https://drive.google.com/file/d/1I9Y5-4aRr0rqPs-FJkVPN9S7YzMd2pfn/view?usp=sharing)
-- Windows: you need to compile OpenHantek6022 yourself.
 
 ## References
 

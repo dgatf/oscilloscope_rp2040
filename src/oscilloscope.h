@@ -24,26 +24,22 @@ extern "C"
 {
 #endif
 
-#include "hardware/irq.h"
-#include "hardware/dma.h"
-#include "hardware/clocks.h"
-#include "hardware/adc.h"
-#include <hardware/regs/dreq.h>
-#include "pico/stdlib.h"
-#include "common.h"
 #include "bsp/board.h"
-#include "tusb_config.h"
-#include "protocol.h"
-#include "hardware/pwm.h"
+#include "common.h"
 
 #define BUFFER_RING_BITS 10
-#define BUFFER_SIZE (uint32_t)(1 << BUFFER_RING_BITS) // 1024
-#define CALIBRATION_GPIO 22
+#define BUFFER_SIZE (1 << BUFFER_RING_BITS) // 1024 bytes
+
+    typedef enum state_t
+    {
+        IDLE,
+        RUNNING
+    } state_t;
 
     typedef void (*complete_handler_t)(void);
-    
+
     extern config_t config_;
-    
+
     void oscilloscope_task(void);
     void oscilloscope_init(void);
     void oscilloscope_start(void);
