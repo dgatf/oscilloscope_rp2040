@@ -17,40 +17,38 @@
  */
 
 #include "common.h"
-#include <stdio.h>
+
 #include <stdarg.h>
+#include <stdio.h>
+
 #include "hardware/gpio.h"
 #include "hardware/uart.h"
+#include "pico/stdlib.h"
 
 static char *buffer_;
 static bool *is_enabled_;
 
-void debug_init(uint baudrate, char *buffer, bool *is_enabled)
-{
+void debug_init(uint baudrate, char *buffer, bool *is_enabled) {
     buffer_ = buffer;
     is_enabled_ = is_enabled;
-    if (*is_enabled_)
-    {
+    if (*is_enabled_) {
         uart_init(uart0, baudrate);
         uart_set_fifo_enabled(uart0, true);
         gpio_set_function(16, GPIO_FUNC_UART);
     }
+    sleep_ms(1000);
 }
 
-void debug_reinit(void)
-{
-    if (*is_enabled_)
-    {
+void debug_reinit(void) {
+    if (*is_enabled_) {
         uart_init(uart0, 115200);
         uart_set_fifo_enabled(uart0, true);
         gpio_set_function(16, GPIO_FUNC_UART);
     }
 }
 
-void debug(const char *format, ...)
-{
-    if (*is_enabled_)
-    {
+void debug(const char *format, ...) {
+    if (*is_enabled_) {
         va_list args;
         va_start(args, format);
         vsprintf(buffer_, format, args);
@@ -59,10 +57,8 @@ void debug(const char *format, ...)
     }
 }
 
-void debug_block(const char *format, ...)
-{
-    if (*is_enabled_)
-    {
+void debug_block(const char *format, ...) {
+    if (*is_enabled_) {
         va_list args;
         va_start(args, format);
         vsprintf(buffer_, format, args);
@@ -72,7 +68,4 @@ void debug_block(const char *format, ...)
     }
 }
 
-bool debug_is_enabled(void)
-{
-    return *is_enabled_;
-}
+bool debug_is_enabled(void) { return *is_enabled_; }

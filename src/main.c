@@ -16,76 +16,48 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "bsp/board.h"
-#include "pico/stdlib.h"
-#include "hardware/clocks.h"
 #include "common.h"
+#include "hardware/clocks.h"
 #include "oscilloscope.h"
+#include "pico/stdlib.h"
+#include "tusb_config.h"
 
-typedef enum gpio_config_t
-{
-    GPIO_DEBUG_ENABLE = 18 // If gpio is grounded: debug is enabled. If gpio os not grounded: debug is disabled
-} gpio_config_t;
+typedef enum gpio_config_t { GPIO_DEBUG_ENABLE = 18 } gpio_config_t;
 
 config_t config_;
 char debug_message_[DEBUG_BUFFER_SIZE];
 
 void set_pin_config(void);
 
-int main()
-{
-    if (clock_get_hz(clk_sys) != 200000000)
-        set_sys_clock_khz(200000, true);
-    volatile uint32_t *reg = (volatile uint32_t *)(CLOCKS_BASE + CLOCKS_CLK_ADC_CTRL_OFFSET); // CLK_ADC_CTRL
-    *reg = 0x820;                                                                             // clk_sys, enable
-
+int main() {
+    if (clock_get_hz(clk_sys) != 200000000) set_sys_clock_khz(200000, true);
+    volatile uint32_t *reg = (volatile uint32_t *)(CLOCKS_BASE + CLOCKS_CLK_ADC_CTRL_OFFSET);  // CLK_ADC_CTRL
+    *reg = 0x820;                                                                              // clk_sys, enable
     set_pin_config();
-
     tud_init(BOARD_TUD_RHPORT);
     board_init();
-
-    // debug init
-    debug_init(115200, debug_message_, &config_.debug_is_enabled);
-    if (config_.debug_is_enabled)
-        sleep_ms(1000);
-    debug("\n\n%s - v%i.%i", DEVICE_NAME, VERSION_MAYOR, VERSION_MINOR);
-
-    // led blink
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     sleep_ms(500);
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    oscilloscope_init(&config_);
 
-    oscilloscope_init();
+    debug_init(115200, debug_message_, &config_.debug_is_enabled);
+    debug("\n\n%s - v%i.%i", DEVICE_NAME, VERSION_MAYOR, VERSION_MINOR);
 
-    while (true)
-    {
+    while (true) {
         tud_task();
         oscilloscope_task();
     }
 }
 
-void set_pin_config(void)
-{
-    /*
-     *   Connect GPIO to GND at boot to select/enable:
-     *   - GPIO 18: debug enabled
-     *
-     *   Defaults (option not grounded):
-     *   - Debug disabled
-     */
-
-    // configure pins
-    gpio_init_mask(GPIO_DEBUG_ENABLE);
-    gpio_set_dir_masked(GPIO_DEBUG_ENABLE, false);
+void set_pin_config(void) {
+    gpio_init_mask((1 << GPIO_DEBUG_ENABLE));
+    gpio_set_dir_masked((1 << GPIO_DEBUG_ENABLE), false);
     gpio_pull_up(GPIO_DEBUG_ENABLE);
-    sleep_ms(1); // wait for pullup
-
-    // set default config
+    sleep_ms(1);  // wait for pullup
     config_.debug_is_enabled = false;
-
-    // read pin config
-    if (gpio_get(GPIO_DEBUG_ENABLE) == 0)
-        config_.debug_is_enabled = true;
+    config_.no_conversion = false;
+    if (!gpio_get(GPIO_DEBUG_ENABLE)) config_.debug_is_enabled = true;
 }

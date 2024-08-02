@@ -1,24 +1,3 @@
 {
-    "files.associations": {
-        "type_traits": "c",
-        "cstdarg": "c",
-        "cstdio": "cpp",
-        "capture.h": "c",
-        "oscilloscope.h": "c",
-        "protocol.h": "c",
-        "random": "c",
-        "optional": "c",
-        "ostream": "c",
-        "system_error": "c",
-        "array": "c",
-        "functional": "c",
-        "tuple": "c",
-        "utility": "c",
-        "algorithm": "c",
-        "tusb_config.h": "c",
-        "board.h": "c",
-        "common.h": "c",
-        "stdarg.h": "c"
-    },
-    "cmake.sourceDirectory": "${workspaceFolder}/src"
+    "cmake.sourceDirectory": "${workspaceFolder}/src",
 }

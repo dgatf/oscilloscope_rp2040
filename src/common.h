@@ -20,8 +20,7 @@
 #define COMMON
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "pico/types.h"
@@ -34,25 +33,36 @@ extern "C"
 #define VERSION_MAYOR 0
 #define VERSION_MINOR 1
 
-    typedef struct config_t
-    {
-        bool debug_is_enabled;
-    } config_t;
+typedef enum coupling_t { COUPLING_DC, COUPLING_AC } coupling_t;
 
-    typedef struct oscilloscope_config_t
-    {
-        uint channel_mask;
-        uint samplerate;
-        uint calibration_freq;
-        uint ch1_gain;
-        uint ch2_gain;
-    } oscilloscope_config_t;
+typedef struct calibration_t {
+    uint8_t offset_ls[8][2];
+    uint8_t offset_hs[8][2];
+    uint8_t gain[8][2];
+    uint8_t gainf_ls[8][2];
+    uint8_t gainf_hs[8][2];
+} calibration_t;
 
-    void debug_init(uint baudrate, char *buffer, bool *is_enabled);
-    void debug_reinit(void);
-    void debug(const char *format, ...);
-    void debug_block(const char *format, ...);
-    bool debug_is_enabled(void);
+typedef struct config_t {
+    bool debug_is_enabled;
+    bool no_conversion;
+} config_t;
+
+typedef struct oscilloscope_config_t {
+    uint channel_mask;
+    uint samplerate;
+    uint calibration_freq;
+    uint ch_gain[2];
+    coupling_t coupling[2];
+} oscilloscope_config_t;
+
+typedef enum channel_t { CHANNEL1, CHANNEL2 } channel_t;
+
+void debug_init(uint baudrate, char *buffer, bool *is_enabled);
+void debug_reinit(void);
+void debug(const char *format, ...);
+void debug_block(const char *format, ...);
+bool debug_is_enabled(void);
 
 #ifdef __cplusplus
 }

@@ -1,4 +1,4 @@
-# Oscilloscpe RP2040 - OpenHantek protocol
+# Oscilloscope RP2040 - OpenHantek protocol
 
 An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.com/OpenHantek/OpenHantek6022) protocol.
 
@@ -9,17 +9,19 @@ An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.c
 
 ## Usage
 
-Upload the binary [oscilloscope.uf2](#binaries) to RP2040.
+1. Upload the binary [oscilloscope.uf2](#binaries) to RP2040.
 
-Launch OpenHantek6022 (modifed version). OpenHantek6022 needs to be modified for the RP2040:
+2. Install OpenHantek. OpenHantek6022 needs to be modified for the RP2040: [OpenHantek6022 fork](https://github.com/dgatf/OpenHantek6022)
 
-- [OpenHantek6022 fork](https://github.com/dgatf/OpenHantek6022)
+    - Build OpenHantek following the steps.  
 
-You can build OpenHantek following the steps.  
+    - Or download the binary [OpenHantek6022-RP2040.AppImage](#binaries) for linux. You may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils). If using windows, you need to build OpenHantek.
 
-Or download the binary [OpenHantek6022-RP2040.AppImage](#binaries) for linux. You may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils). If using windows, ou need to build OpenHantek.
+    - If not using an [external circuit](#external-circuit), copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (linux)* or *%USERPROFILE%\.config\OpenHantek* (windows).
 
-## Pins
+3. Launch OpenHantek6022 (modifed version). 
+
+__Pins__
 
 - Channel 1 -> GPIO 26
 - Channel 2 -> GPIO 27
@@ -27,9 +29,9 @@ Or download the binary [OpenHantek6022-RP2040.AppImage](#binaries) for linux. Yo
 - Debug enable/disabble -> GPIO 18
 - Debug output -> GPIO1 16
 
-Voltage at channels (GPIO 26 & 27) must be between 0 and 3.3V.  
+Without the [external circuit](#external-circuit), voltage at channels (GPIO 26 & 27) must be between 0 and 3.3V.  
 
-If enabled, debug output is on GPIO 16 at 115200bps. To enable debug, connect to ground GPIO 18 at boot.
+Debug output is on GPIO 16 at 115200bps. To enable debug, connect to ground GPIO 18 at boot.
 
 Led is on during the capture process.
 
@@ -37,14 +39,39 @@ Led is on during the capture process.
 
 <p align="center"><img src="./images/openhantek.png" width="600"><br>  
 
-## Configuration
+## External circuit ##
 
-__Debug mode__  
-GPIO 18 to GND: enable debug mode. Debug output is on GPIO 16 at 115200 bps.
+Configure the input signal from +3.3V-0V to +5V-5V and add AC coupling.
 
-If no GPIO is grounded, the default configuration is:
+For the gain an opamp could be added, but since we've 12bits ADC on the RP2040, will scale from 12bits value to 8bits. Maximum effective scale (gain) is 16. For bigger gains, use an additionnal opamp befere centering the signal.
 
-- Debug mode: disabled.
+Signal conversion: 
+ 
+ - Step down from 5V to 3.3V
+ - AC/DC coupling
+ - Gain (not designed)
+ - Center and scale zero voltage to Vcc/2
+
+Materials:
+
+ - 1 x IC switch CD4066
+ - 1 x op amp LM358
+ - 2 x ceramic capacitor 100nF
+ - 6 x 10k resistor
+ - 2 x 33k resistor
+ - 2 x 22k resistor
+
+Delete calibration file, if already copied to *config* folder.
+
+<p align="center"><img src="./images/external_circuit.png" width="600"><br>  
+
+## Calibration file Openhantek
+
+If not using the external circuit we need to convert the signal from +3.3V-0V to +5V-5V. In order to use the full range (0-255), the conversion is done with the calibration file. Set the offsets to -127 and gains to 0.33
+
+Copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (linux)* or *%USERPROFILE%\.config\OpenHantek* (windows).
+
+If using the external cirucuit, set the offsets to 0 and gains to 1 or delete the calibration file.
 
 ## Binaries
 
