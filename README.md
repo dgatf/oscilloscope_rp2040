@@ -15,7 +15,9 @@ An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.c
 
     - Build OpenHantek following the steps.  
 
-    - Or download the binary [OpenHantek6022-RP2040.AppImage](#binaries) for linux. You may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils). If using windows, you need to build OpenHantek.
+    - Or download the binary:
+        - Linux: [OpenHantek6022-RP2040.AppImage](#binaries). You may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils).
+        - Windows: [OpenHantek6022-RP2040.exe](#binaries).
 
     - If not using an [external circuit](#external-circuit), copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (linux)* or *%USERPROFILE%\.config\OpenHantek* (windows).
 
@@ -52,7 +54,7 @@ Signal conversion:
  - Gain (not designed)
  - Center and scale zero voltage to Vcc/2
 
-Materials:
+__Materials__
 
  - 1 x IC switch CD4066
  - 1 x op amp LM358
@@ -62,6 +64,11 @@ Materials:
  - 2 x 22k resistor
 
 Delete calibration file, if already copied to *config* folder.
+
+__Pins__
+
+- AC/DC coupling channel 1 -> GPIO 20 
+- AC/DC coupling channel 2 -> GPIO 21 
 
 <p align="center"><img src="./images/external_circuit.png" width="600"><br>  
 
@@ -77,6 +84,7 @@ If using the external cirucuit, set the offsets to 0 and gains to 1 or delete th
 
 - [oscilloscope.uf2](https://drive.google.com/file/d/11BkBbbuAzuO7nqTozGVK0Epi27-wBS4m/view?usp=drive_link)
 - Linux: [OpenHantek6022-RP2040.AppImage](https://drive.google.com/file/d/1I9Y5-4aRr0rqPs-FJkVPN9S7YzMd2pfn/view?usp=sharing)
+- Winodws: [OpenHantek6022-RP2040.exe](https://drive.google.com/file/d/1WyPk89JrXQqL9sIHauAQx42BuTifEYTn/view?usp=sharing)
 
 ## References
 
