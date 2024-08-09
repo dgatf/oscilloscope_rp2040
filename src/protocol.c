@@ -38,32 +38,7 @@ void protocol_init(config_t *config, volatile oscilloscope_config_t *oscilloscop
 void protocol_task(void) {
     switch (command_) {
         case GET_CALIBRATION: {
-            uint8_t buffer[255], offset, gain, gainf;
-            calibration_t calibration;
-            // if (!config_->circuit_is_enabled) {
-            offset = 127;
-            gain = 1;
-            gainf = 0;
-            //}
-            /*for (uint channel = 0; channel < 2; channel++) {
-                for (uint i = 0; i < 8; i++) {
-                    calibration.offset_hs[i][channel] = offset;
-                    calibration.offset_ls[i][channel] = offset;
-                    calibration.gain[i][channel] = gain;
-                    calibration.gainf_hs[i][channel] = gainf;
-                    calibration.gainf_ls[i][channel] = gainf;
-                }
-            }
-            memcpy(buffer, &calibration, sizeof(calibration_t));*/
-
-            for (uint i = 0; i < 255; i++) buffer[i] = i;
-            // tud_control_xfer(0, request_, (void *)(uintptr_t)&buffer, 64);
-            send_cal_ = false;
-
-            // send_bulk2(buffer, 64);
-            // send_bulk2(buffer + 64, 64);
             command_ = NONE;
-            // debug("\nSend calibration. Offset: %u Gain: %.4f (%u %u)", offset, gain + gainf / 250.0, gain, gainf);
             break;
         }
         case SET_SAMPLERATE:
