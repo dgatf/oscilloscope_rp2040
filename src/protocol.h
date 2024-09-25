@@ -26,6 +26,8 @@ extern "C" {
 #include "common.h"
 #include "oscilloscope.h"
 
+#define BULK_SIZE 64
+
 typedef enum command_t {
     SET_GAIN_CH1,
     SET_GAIN_CH2,
@@ -42,10 +44,8 @@ typedef enum command_t {
 } command_t;
 
 void protocol_task(void);
-void protocol_init(config_t *config, volatile oscilloscope_config_t *oscilloscope_config);
-bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request);
 void protocol_sample_handler(void);
-void protocol_set_buffer(uint8_t *buffer);
+void protocol_init(uint8_t *buffer);
 void protocol_stop(void);
 void protocol_complete_handler(void);
 

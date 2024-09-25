@@ -4,8 +4,8 @@ An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.c
 
 ## Specifications
 
+- 1 MS/s
 - 2 channels
-- 200 kS/s
 
 ## Usage
 
@@ -28,8 +28,9 @@ __Pins__
 - Channel 1 -> GPIO 26
 - Channel 2 -> GPIO 27
 - Calibration signal -> GPIO 22
-- Debug enable/disabble -> GPIO 18
-- Debug output -> GPIO1 16
+- No conversion -> GPIO 19
+- Debug enable/disable -> GPIO 18
+- Debug output -> GPIO 16
 
 Without the [external circuit](#external-circuit), voltage at channels (GPIO 26 & 27) must be between 0 and 3.3V.  
 
@@ -45,7 +46,7 @@ Led is on during the capture process.
 
 Configure the input signal from +3.3V-0V to +5V-5V and add AC coupling.
 
-For the gain an opamp could be added, but since we've 12bits ADC on the RP2040, will scale from 12bits value to 8bits. Maximum effective scale (gain) is 16. For bigger gains, use an additionnal opamp befere centering the signal.
+For the gain an opamp could be added, but since we've 12bits ADC on the RP2040, will scale from 12bits value to 8bits. Maximum gain is 16. For bigger gains, use an additionnal opamp before centering the signal.
 
 Signal conversion: 
  
@@ -82,7 +83,7 @@ If using the external cirucuit, set the offsets to 0 and gains to 1 or delete th
 
 ## Binaries
 
-- [oscilloscope.uf2](https://drive.google.com/file/d/11BkBbbuAzuO7nqTozGVK0Epi27-wBS4m/view?usp=drive_link)
+- RP2040: [oscilloscope.uf2](https://drive.google.com/file/d/11BkBbbuAzuO7nqTozGVK0Epi27-wBS4m/view?usp=drive_link)
 - Linux: [OpenHantek6022-RP2040.AppImage](https://drive.google.com/file/d/1I9Y5-4aRr0rqPs-FJkVPN9S7YzMd2pfn/view?usp=sharing)
 - Winodws: [OpenHantek6022-RP2040.exe](https://drive.google.com/file/d/1WyPk89JrXQqL9sIHauAQx42BuTifEYTn/view?usp=sharing)
 
@@ -91,3 +92,4 @@ If using the external cirucuit, set the offsets to 0 and gains to 1 or delete th
 - [OpenHantek6022](https://github.com/OpenHantek/OpenHantek6022)
 - [libsigrok](https://github.com/sigrokproject/libsigrok)
 - Das Oszi Protocol - eLinux.org
+- [Usb device library](https://github.com/dgatf/usb_library_rp2040)

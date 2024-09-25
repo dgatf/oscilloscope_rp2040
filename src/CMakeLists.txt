@@ -30,8 +30,9 @@ add_executable(${PROJECT_NAME}
     main.c
     common.c
     oscilloscope.c
-    usb_descriptors.c
     protocol.c
+    usb.c
+    usb_config.c
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
@@ -40,14 +41,13 @@ pico_add_extra_outputs(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} 
     pico_stdlib
+    pico_multicore
     hardware_irq
     hardware_uart
     hardware_clocks
     hardware_dma
     hardware_adc
     hardware_pwm
-    tinyusb_board
-    tinyusb_device
 )
 
 pico_set_binary_type(${PROJECT_NAME} copy_to_ram)

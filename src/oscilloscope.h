@@ -23,22 +23,20 @@
 extern "C" {
 #endif
 
-#include "bsp/board.h"
 #include "common.h"
 
-#define BUFFER_RING_BITS 10
+#define BUFFER_RING_BITS 14
 #define BUFFER_SIZE (1 << BUFFER_RING_BITS)  // 1024 bytes
 
 typedef enum state_t { IDLE, RUNNING } state_t;
 
 typedef void (*complete_handler_t)(void);
 
-void oscilloscope_init(config_t *config);
+void oscilloscope_init(void);
 void oscilloscope_start(void);
 void oscilloscope_stop(void);
 void oscilloscope_task(void);
 state_t oscilloscope_state(void);
-bool oscilloscope_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request);
 void oscilloscope_set_samplerate(uint samplerate);
 void oscilloscope_set_channels(uint8_t mask);
 void oscilloscope_set_calibration_frequency(uint freq);

@@ -18,88 +18,164 @@
 
 #include "protocol.h"
 
+#include <string.h>
+
 #include "hardware/adc.h"
+#include "hardware/regs/usb.h"
+#include "hardware/structs/usb.h"
+#include "pico/multicore.h"
+#include "stdio.h"
+#include "usb.h"
+
+#define usb_hw_set ((usb_hw_t *)hw_set_alias_untyped(usb_hw))
+#define usb_hw_clear ((usb_hw_t *)hw_clear_alias_untyped(usb_hw))
+
+extern config_t config_;
+extern volatile oscilloscope_config_t oscilloscope_config_;
+extern char debug_message_[DEBUG_BUFFER_SIZE];
 
 static uint8_t *buffer_;
+static uint16_t *buffer16_;
 static uint send_count_ = 0, channel_center_;
-volatile static uint sample_count_ = 0, channel_mask_, channel_factor_[2], ch2_enabled_;
-volatile static bool change_channels_ = false;
-volatile static command_t command_ = NONE;
-static config_t *config_;
-volatile static oscilloscope_config_t *oscilloscope_config_;
-volatile static bool send_cal_ = false;
-static inline bool send_bulk(uint8_t *buffer);
+static volatile uint sample_count_ = 0, channel_mask_, channel_factor_[2], ch2_enabled_;
+static volatile bool change_channels_ = false;
+static volatile command_t command_ = NONE;
+static volatile bool send_cal_ = false;
+static struct usb_endpoint_configuration *ep;
+bool should_stop = false;
 
-void protocol_init(config_t *config, volatile oscilloscope_config_t *oscilloscope_config) {
-    config_ = config;
-    oscilloscope_config_ = oscilloscope_config;
-}
+static inline void prepare_buffers(void);
+static inline bool is_buffer_a(void);
 
-void protocol_task(void) {
-    switch (command_) {
-        case GET_CALIBRATION: {
-            command_ = NONE;
-            break;
+static void core1_entry(void) {
+    while (1) {
+        if (sample_count_ - ep->pos /*send_count_*/ >= BULK_SIZE) {
+            prepare_buffers();
         }
-        case SET_SAMPLERATE:
-            if (oscilloscope_config_->channel_mask == 0b01)
-                oscilloscope_set_samplerate(oscilloscope_config_->samplerate);
-            else
-                oscilloscope_set_samplerate(oscilloscope_config_->samplerate * 2);
-            command_ = NONE;
-            break;
-        case START:
-            oscilloscope_start();
-            command_ = NONE;
-            break;
-        case STOP:
-            oscilloscope_stop();
-            command_ = NONE;
-            break;
-        case SET_CHANNELS:
-            if (oscilloscope_config_->channel_mask == 0b01)
-                oscilloscope_set_samplerate(oscilloscope_config_->samplerate);
-            else
-                oscilloscope_set_samplerate(oscilloscope_config_->samplerate * 2);
-            command_ = NONE;
-            break;
-        case SET_CALIBRATION_FREQ:
-            oscilloscope_set_calibration_frequency(oscilloscope_config_->calibration_freq);
-            command_ = NONE;
-            break;
-        case SET_COUPLING:
-            oscilloscope_set_coupling(CHANNEL1, oscilloscope_config_->coupling[CHANNEL1]);
-            oscilloscope_set_coupling(CHANNEL2, oscilloscope_config_->coupling[CHANNEL2]);
-            command_ = NONE;
-            break;
-        case SET_GAIN_CH1:
-            command_ = NONE;
-            break;
-        case SET_GAIN_CH2:
-            command_ = NONE;
-            break;
-    }
-
-    if (sample_count_ - send_count_ >= 64) {
-        if (send_bulk(buffer_ + (send_count_ % BUFFER_SIZE))) send_count_ += 64;
     }
 }
 
-void protocol_stop(void) {
-    sample_count_ = 0;
-    send_count_ = 0;
+static inline bool is_buffer_a(void) {
+    uint a = send_count_ / BULK_SIZE;
+    bool b = a & 1;
+    // debug("\nSC %u a%u !b %u", send_count_, a, !b);
+    return !b;  // buffer a for 0,2,4,6...
 }
 
-bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
-    static uint8_t data[128];
-    if (stage == CONTROL_STAGE_SETUP) {
-        if (request->bmRequestType_bit.type) {
-            // Here we can set the data buffer if direction is to the host (IN)
-            return tud_control_xfer(rhport, request, (void *)(uintptr_t)&data, request->wLength);
+static inline void prepare_buffers(void) {
+    if (should_stop) {
+        ep->lenght = ep->pos_send;
+        while (*ep->buffer_control & USB_BUF_CTRL_AVAIL);
+        usb_continue_transfer(ep);
+        adc_run(false);
+        irq_set_enabled(DMA_IRQ_0, false);
+        irq_clear(DMA_IRQ_0);
+        should_stop = false;
+        ep->status == STATUS_OK;
+        ep->lenght = -1;
+        ep->next_pid = 0;
+        return;
+    }
+    if (ep->status == STATUS_BUSY) {
+        if (!ep->double_buffer) {
+            if (!(*ep->buffer_control & USB_BUF_CTRL_AVAIL)) {
+                if (config_.no_conversion)
+                    memcpy((void *)ep->dpram_buffer_a, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
+                else {
+                    uint pos = (send_count_ % (BUFFER_SIZE >> 1));
+                    uint ch_gain;
+                    for (uint i = 0; i < BULK_SIZE; i++) {
+                        if (channel_mask_ == 0b11 && (i % 2))
+                            ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
+                        else
+                            ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
+                        uint16_t *buffer_pos = (void *)buffer_;
+                        buffer_pos += pos + i;
+                        uint16_t value = (*buffer_pos * ch_gain) >> 4;
+                        if (value > 0xFF) value = 0xFF;
+                        *(ep->dpram_buffer_a + i) = value;
+                    }
+                }
+                usb_continue_transfer(ep);
+                ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
+                send_count_ += BULK_SIZE;
+            }
+        } else {
+            if (is_buffer_a()) {
+                debug("\nBF A");
+                if (!((*ep->buffer_control) & USB_BUF_CTRL_AVAIL)) {
+                    if (config_.no_conversion)
+                        memcpy((void *)ep->dpram_buffer_a, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
+                    else {
+                        uint pos = (send_count_ % BUFFER_SIZE);
+                        uint ratio;
+                        for (uint i = 0; i < BULK_SIZE; i++) {
+                            if (channel_mask_ == 0b11 && (i % 2))
+                                ratio = oscilloscope_config_.ch_gain[CHANNEL2] >> 4;
+                            else
+                                ratio = oscilloscope_config_.ch_gain[CHANNEL1] >> 4;
+                            uint16_t *buffer_pos = (uint16_t *)buffer_ + pos + i;
+                            uint16_t value = *buffer_pos * ratio;
+                            if (value > 0xFF) value = 0xFF;
+                            *(ep->dpram_buffer_a + i) = value;
+                        }
+                    }
+                    usb_continue_transfer(ep);
+                    debug(" CONT A %u ", send_count_);
+                    send_count_ += BULK_SIZE;
+                }
+            } else {
+                debug("\nBF B");
+                if (!((*ep->buffer_control >> 16) & USB_BUF_CTRL_AVAIL)) {
+                    if (config_.no_conversion)
+                        memcpy((void *)ep->dpram_buffer_b, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
+                    else {
+                        uint pos = (send_count_ % BUFFER_SIZE);
+                        uint ratio;
+                        for (uint i = 0; i < BULK_SIZE; i++) {
+                            if (channel_mask_ == 0b11 && (i % 2))
+                                ratio = oscilloscope_config_.ch_gain[CHANNEL2] >> 4;
+                            else
+                                ratio = oscilloscope_config_.ch_gain[CHANNEL1] >> 4;
+                            uint16_t *buffer_pos = (uint16_t *)buffer_ + pos + i;
+                            uint16_t value = *buffer_pos * ratio;
+                            if (value > 0xFF) value = 0xFF;
+                            *(ep->dpram_buffer_b + i) = value;
+                        }
+                    }
+                    usb_continue_transfer(ep);
+                    debug(" CONT B %u ", send_count_);
+                    send_count_ += BULK_SIZE;
+                }
+            }
         }
-        return false;
-    } else if (stage == CONTROL_STAGE_DATA) {
-        switch (request->bRequest) {
+    } else {
+        if (!ep->double_buffer) {
+            memcpy((void *)ep->dpram_buffer_a, (void *)(buffer_ + (send_count_ % BUFFER_SIZE)), BULK_SIZE);
+            usb_init_transfer(ep, UNKNOWN_SIZE);
+            send_count_ += BULK_SIZE;
+            ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
+        } else if (sample_count_ >= BULK_SIZE * 2) {
+            debug("\nINIT");
+            memcpy((void *)ep->dpram_buffer_a, (void *)(buffer_ + (send_count_ % BUFFER_SIZE)), BULK_SIZE * 2);
+            usb_init_transfer(ep, UNKNOWN_SIZE);
+            send_count_ += BULK_SIZE * 2;
+            ep->pos += BULK_SIZE * 2; // when streaming, buffer done is broken ?
+        }
+    }
+}
+
+void protocol_stop(void) {}
+
+void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage) {
+    // debug("\nControl transfer. Stage %u bmRequestType 0x%x bRequest 0x%x wValue 0x%x wIndex 0x%x wLength %u", stage,
+    // pkt->bmRequestType, pkt->bRequest, pkt->wValue, pkt->wIndex, pkt->wLength);
+    if (stage == STAGE_SETUP) {
+        if (pkt->bmRequestType & USB_DIR_IN) {
+            ;  // Here prepare buffer to send
+        }
+    } else if (stage == STAGE_DATA) {
+        switch (pkt->bRequest) {
             case 0xA2:  // get calibration
             {
                 // command_ = GET_CALIBRATION;
@@ -108,175 +184,185 @@ bool protocol_read_command_handler(uint8_t rhport, uint8_t stage, tusb_control_r
             }
             case 0xE0:  // set gain ch1
             {
-                uint16_t value = data[0] | (data[1] << 8);
+                uint16_t value = buf[0] | (buf[1] << 8);
                 switch (value) {
                     case 0x0701:  // 5V. Gain 1
                     case 0x0601:  // 2V
                     case 0x0501:  // 1V
-                        oscilloscope_config_->ch_gain[CHANNEL1] = 1;
+                        oscilloscope_config_.ch_gain[CHANNEL1] = 1;
                         break;
                     case 0x0402:  // 500mV. Gain 2
-                        oscilloscope_config_->ch_gain[CHANNEL1] = 2;
+                        oscilloscope_config_.ch_gain[CHANNEL1] = 2;
                         break;
                     case 0x0305:  // 200mV. Gain 5
-                        oscilloscope_config_->ch_gain[CHANNEL1] = 5;
+                        oscilloscope_config_.ch_gain[CHANNEL1] = 5;
                         break;
                     case 0x020a:  // 100mV. Gain 10
                     case 0x010a:  // 50mV
                     case 0x000a:  // 20mV
-                        oscilloscope_config_->ch_gain[CHANNEL1] = 10;
+                        oscilloscope_config_.ch_gain[CHANNEL1] = 10;
                         break;
                 }
                 // To use full range (0-255), signal center and step down is done in openhantek with calibration file
-                channel_factor_[CHANNEL1] = 16 / oscilloscope_config_->ch_gain[CHANNEL1];
-                debug("\nCommand set gain ch1 (0x%X): %u", value, oscilloscope_config_->ch_gain[CHANNEL1]);
+                channel_factor_[CHANNEL1] = 16 / oscilloscope_config_.ch_gain[CHANNEL1];
+                debug("\nCommand set gain ch1 (0x%X): %u", value, oscilloscope_config_.ch_gain[CHANNEL1]);
                 break;
             }
             case 0xE1:  // set gain ch2
             {
-                uint16_t value = data[0] | (data[1] << 8);
+                uint16_t value = buf[0] | (buf[1] << 8);
                 switch (value) {
                     case 0x0701:  // 5V. Gain 1
                     case 0x0601:  // 2V
                     case 0x0501:  // 1V
-                        oscilloscope_config_->ch_gain[CHANNEL2] = 1;
+                        oscilloscope_config_.ch_gain[CHANNEL2] = 1;
                         break;
                     case 0x0402:  // 500mV. Gain 2
-                        oscilloscope_config_->ch_gain[CHANNEL2] = 2;
+                        oscilloscope_config_.ch_gain[CHANNEL2] = 2;
                         break;
                     case 0x0305:  // 200mV. Gain 5
-                        oscilloscope_config_->ch_gain[CHANNEL2] = 5;
+                        oscilloscope_config_.ch_gain[CHANNEL2] = 5;
                         break;
                     case 0x020a:  // 100mV. Gain 10
                     case 0x010a:  // 50mV
                     case 0x000a:  // 20mV
-                        oscilloscope_config_->ch_gain[CHANNEL2] = 10;
+                        oscilloscope_config_.ch_gain[CHANNEL2] = 10;
                         break;
                 }
                 // To use full range (0-255), signal center and step down is done in openhantek with calibration file
-                channel_factor_[CHANNEL2] = 16 / oscilloscope_config_->ch_gain[CHANNEL2];
-                debug("\nCommand set gain ch2 (0x%X): %u", value, oscilloscope_config_->ch_gain[CHANNEL2]);
+                channel_factor_[CHANNEL2] = 16 / oscilloscope_config_.ch_gain[CHANNEL2];
+                debug("\nCommand set gain ch2 (0x%X): %u", value, oscilloscope_config_.ch_gain[CHANNEL2]);
                 break;
             }
             case 0xE2:  // set samplerate
             {
-                uint16_t value = data[0] | (data[1] << 8);
+                uint16_t value = buf[0] | (buf[1] << 8);
+                bool handled = true;
                 switch (value) {
                     case 0x0365:
                     case 0x0065:  // 10 downsampling
-                        oscilloscope_config_->samplerate = 10e3;
+                        oscilloscope_config_.samplerate = 10e3;
                         break;
                     case 0x0446:
                     case 0x0166:  // 10 downsampling
-                        oscilloscope_config_->samplerate = 20e3;
+                        oscilloscope_config_.samplerate = 20e3;
                         break;
                     case 0x0569:
                     case 0x0269:  // 10 downsampling
-                        oscilloscope_config_->samplerate = 50e3;
+                        oscilloscope_config_.samplerate = 50e3;
                         break;
                     case 0x066E:
-                        oscilloscope_config_->samplerate = 100e3;
+                        oscilloscope_config_.samplerate = 100e3;
                         break;
                     case 0x0778:
-                        oscilloscope_config_->samplerate = 200e3;
+                        oscilloscope_config_.samplerate = 200e3;
                         break;
                     case 0x88C:
-                        oscilloscope_config_->samplerate = 400e3;
+                        oscilloscope_config_.samplerate = 400e3;
                         break;
                     case 0x0896:
-                        oscilloscope_config_->samplerate = 500e3;
+                        oscilloscope_config_.samplerate = 500e3;
                         break;
                     case 0x0901:
-                        oscilloscope_config_->samplerate = 1e6;
+                        oscilloscope_config_.samplerate = 1e6;
                         break;
                     case 0x0A02:
-                        oscilloscope_config_->samplerate = 2e6;
+                        oscilloscope_config_.samplerate = 2e6;
                         break;
+                    default:
+                        handled = false;
                 }
-                command_ = SET_SAMPLERATE;
-                debug("\nCommand samplerate: 0x%X", value);
+                if (handled) {
+                    debug("\nCommand samplerate: 0x%X", value);
+                    if (oscilloscope_config_.channel_mask == 0b01)
+                        oscilloscope_set_samplerate(oscilloscope_config_.samplerate);
+                    else
+                        oscilloscope_set_samplerate(oscilloscope_config_.samplerate * 2);
+                } else
+                    debug("\nUnknown samplerate: 0x%X", value);
                 break;
             }
             case 0xE3:  // start/stop sampling
             {
-                if (data[0] == 1) {
+                if (buf[0] == 1) {
                     if (oscilloscope_state() == IDLE) {
-                        command_ = START;
+                        // command_ = START;
                         debug("\nCommand start sampling");
+                        sample_count_ = 0;
+                        send_count_ = 0;
+
+                        usb_hw_clear->buf_status = ep->bit;
+                        usb_hw_clear->buf_status = ep->bit;
+                        oscilloscope_start();
+                        debug("\nOscilloscope start. Samplerate: %u Ch1: %s Ch2: %s", oscilloscope_config_.samplerate,
+                              (oscilloscope_config_.channel_mask & 0B01) ? "enabled" : "disabled",
+                              (oscilloscope_config_.channel_mask & 0B010) ? "enabled" : "disabled");
                     }
                 } else {
                     if (oscilloscope_state() == RUNNING) {
-                        command_ = STOP;
                         debug("\nCommand stop sampling");
+                        oscilloscope_stop();
+                        should_stop = true;
                     }
                 }
                 break;
             }
             case 0xE4:  // set channels
             {
-                if (data[0] == 1) {
-                    oscilloscope_config_->channel_mask = 0b01;
+                if (buf[0] == 1) {
+                    oscilloscope_config_.channel_mask = 0b01;
                     channel_mask_ = 0b01;
                     ch2_enabled_ = false;
-                    command_ = SET_CHANNELS;
-                } else if (data[0] == 2) {
-                    oscilloscope_config_->channel_mask = 0b11;
+                } else if (buf[0] == 2) {
+                    oscilloscope_config_.channel_mask = 0b11;
                     channel_mask_ = 0b11;
                     ch2_enabled_ = true;
-                    command_ = SET_CHANNELS;
                 }
                 change_channels_ = true;
-                debug("\nCommand set channel mask: %u", oscilloscope_config_->channel_mask);
+                debug("\nCommand set channel mask: %u", oscilloscope_config_.channel_mask);
+                if (oscilloscope_config_.channel_mask == 0b01)
+                    oscilloscope_set_samplerate(oscilloscope_config_.samplerate);
+                else
+                    oscilloscope_set_samplerate(oscilloscope_config_.samplerate * 2);
                 break;
             }
             case 0xE5:  // set coupling
             {
-                if (data[0] & 0b1)
-                    oscilloscope_config_->coupling[CHANNEL1] = COUPLING_DC;
+                if (buf[0] & 0b1)
+                    oscilloscope_config_.coupling[CHANNEL1] = COUPLING_DC;
                 else
-                    oscilloscope_config_->coupling[CHANNEL1] = COUPLING_AC;
-                if (data[1] & 0b1)
-                    oscilloscope_config_->coupling[CHANNEL2] = COUPLING_DC;
+                    oscilloscope_config_.coupling[CHANNEL1] = COUPLING_AC;
+                if (buf[1] & 0b1)
+                    oscilloscope_config_.coupling[CHANNEL2] = COUPLING_DC;
                 else
-                    oscilloscope_config_->coupling[CHANNEL2] = COUPLING_AC;
-                command_ = SET_COUPLING;
+                    oscilloscope_config_.coupling[CHANNEL2] = COUPLING_AC;
                 debug("\nCommand set coupling. Channel 1: %s Channel 2: %s",
-                      oscilloscope_config_->coupling[CHANNEL1] == COUPLING_DC ? "DC" : "AC",
-                      oscilloscope_config_->coupling[CHANNEL2] == COUPLING_DC ? "DC" : "AC");
+                      oscilloscope_config_.coupling[CHANNEL1] == COUPLING_DC ? "DC" : "AC",
+                      oscilloscope_config_.coupling[CHANNEL2] == COUPLING_DC ? "DC" : "AC");
+                oscilloscope_set_coupling(CHANNEL1, oscilloscope_config_.coupling[CHANNEL1]);
+                oscilloscope_set_coupling(CHANNEL2, oscilloscope_config_.coupling[CHANNEL2]);
                 break;
             }
             case 0xE6:  // set calibration frequency
             {
-                if (data[0] == 0)
-                    oscilloscope_config_->calibration_freq = 100;
-                else if (data[0] <= 100)
-                    oscilloscope_config_->calibration_freq = data[0] * 1000;
-                else if (data[0] <= 200)
-                    oscilloscope_config_->calibration_freq = (data[0] - 100) * 10;
+                if (buf[0] == 0)
+                    oscilloscope_config_.calibration_freq = 100;
+                else if (buf[0] <= 100)
+                    oscilloscope_config_.calibration_freq = buf[0] * 1000;
+                else if (buf[0] <= 200)
+                    oscilloscope_config_.calibration_freq = (buf[0] - 100) * 10;
                 else
-                    oscilloscope_config_->calibration_freq = (data[0] - 200) * 100;
-                command_ = SET_CALIBRATION_FREQ;
-                debug("\nCommand set calibration frequency (%u): %u Hz", data[0],
-                      oscilloscope_config_->calibration_freq);
+                    oscilloscope_config_.calibration_freq = (buf[0] - 200) * 100;
+                debug("\nCommand set calibration frequency (%u): %u Hz", buf[0], oscilloscope_config_.calibration_freq);
+                oscilloscope_set_calibration_frequency(oscilloscope_config_.calibration_freq);
                 break;
             }
         }
-        return true;
+    } else if (stage == STAGE_STATUS) {
     }
 }
 
-void protocol_sample_handler(void) {
-    uint rawsample = adc_hw->result;
-    uint buffer_pos = sample_count_ % BUFFER_SIZE;
-    uint channel = (sample_count_ % 2) * ch2_enabled_;
-    uint value = rawsample / channel_factor_[channel];  // + channel_center_;
-    if (value > 0xFF) value = 0xFF;
-    *(buffer_ + buffer_pos) = value;
-    sample_count_++;
-}
-
 void protocol_complete_handler(void) {
-    if (config_->no_conversion) sample_count_ += 64;
     if (change_channels_) {
         if (channel_mask_ == 0b01)
             adc_hw->cs = 0x1000B;
@@ -284,15 +370,11 @@ void protocol_complete_handler(void) {
             adc_hw->cs = 0x3000B;
         change_channels_ = false;
     }
+    sample_count_ += BULK_SIZE;
 }
 
-void protocol_set_buffer(uint8_t *buffer) { buffer_ = buffer; }
-
-static inline bool send_bulk(uint8_t *buffer) {
-    uint lenght = tud_vendor_n_write(0, buffer, 64);
-    if (lenght != 64) {
-        // debug("\nPacket error: %u", lenght);
-        return false;
-    }
-    return true;
+void protocol_init(uint8_t *buffer) {
+    buffer_ = buffer;
+    ep = usb_get_endpoint_configuration(EP6_IN_ADDR);
+    multicore_launch_core1(core1_entry);
 }
