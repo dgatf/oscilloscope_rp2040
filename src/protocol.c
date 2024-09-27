@@ -49,7 +49,7 @@ static inline bool is_buffer_a(void);
 
 static void core1_entry(void) {
     while (1) {
-        if (sample_count_ - ep->pos /*send_count_*/ >= BULK_SIZE) {
+        if (sample_count_ - ep->pos >= BULK_SIZE) {
             prepare_buffers();
         }
     }
@@ -96,55 +96,60 @@ static inline void prepare_buffers(void) {
                         *(ep->dpram_buffer_a + i) = value;
                     }
                 }
+                usb_hw_clear->buf_status = ep->bit;
                 usb_continue_transfer(ep);
                 ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
                 send_count_ += BULK_SIZE;
             }
         } else {
-            if (is_buffer_a()) {
-                debug("\nBF A");
+            if (!ep->next_pid) {
                 if (!((*ep->buffer_control) & USB_BUF_CTRL_AVAIL)) {
                     if (config_.no_conversion)
                         memcpy((void *)ep->dpram_buffer_a, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
                     else {
                         uint pos = (send_count_ % BUFFER_SIZE);
-                        uint ratio;
+                        uint ch_gain;
                         for (uint i = 0; i < BULK_SIZE; i++) {
                             if (channel_mask_ == 0b11 && (i % 2))
-                                ratio = oscilloscope_config_.ch_gain[CHANNEL2] >> 4;
+                                ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
                             else
-                                ratio = oscilloscope_config_.ch_gain[CHANNEL1] >> 4;
-                            uint16_t *buffer_pos = (uint16_t *)buffer_ + pos + i;
-                            uint16_t value = *buffer_pos * ratio;
+                                ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
+                            uint16_t *buffer_pos = (void *)buffer_;
+                            buffer_pos += pos + i;
+                            uint16_t value = (*buffer_pos * ch_gain) >> 4;
                             if (value > 0xFF) value = 0xFF;
                             *(ep->dpram_buffer_a + i) = value;
                         }
                     }
+                    set_bsh(0);
+                    usb_hw_clear->buf_status = ep->bit;
                     usb_continue_transfer(ep);
-                    debug(" CONT A %u ", send_count_);
+                    ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
                     send_count_ += BULK_SIZE;
                 }
             } else {
-                debug("\nBF B");
                 if (!((*ep->buffer_control >> 16) & USB_BUF_CTRL_AVAIL)) {
                     if (config_.no_conversion)
                         memcpy((void *)ep->dpram_buffer_b, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
                     else {
                         uint pos = (send_count_ % BUFFER_SIZE);
-                        uint ratio;
+                        uint ch_gain;
                         for (uint i = 0; i < BULK_SIZE; i++) {
                             if (channel_mask_ == 0b11 && (i % 2))
-                                ratio = oscilloscope_config_.ch_gain[CHANNEL2] >> 4;
+                                ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
                             else
-                                ratio = oscilloscope_config_.ch_gain[CHANNEL1] >> 4;
-                            uint16_t *buffer_pos = (uint16_t *)buffer_ + pos + i;
-                            uint16_t value = *buffer_pos * ratio;
+                                ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
+                            uint16_t *buffer_pos = (void *)buffer_;
+                            buffer_pos += pos + i;
+                            uint16_t value = (*buffer_pos * ch_gain) >> 4;
                             if (value > 0xFF) value = 0xFF;
                             *(ep->dpram_buffer_b + i) = value;
                         }
                     }
+                    set_bsh(4096);
+                    usb_hw_clear->buf_status = ep->bit;
                     usb_continue_transfer(ep);
-                    debug(" CONT B %u ", send_count_);
+                    ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
                     send_count_ += BULK_SIZE;
                 }
             }
@@ -152,12 +157,14 @@ static inline void prepare_buffers(void) {
     } else {
         if (!ep->double_buffer) {
             memcpy((void *)ep->dpram_buffer_a, (void *)(buffer_ + (send_count_ % BUFFER_SIZE)), BULK_SIZE);
+            usb_hw_clear->buf_status = ep->bit;
             usb_init_transfer(ep, UNKNOWN_SIZE);
             send_count_ += BULK_SIZE;
             ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
         } else if (sample_count_ >= BULK_SIZE * 2) {
-            debug("\nINIT");
+            //debug_block("\nX");
             memcpy((void *)ep->dpram_buffer_a, (void *)(buffer_ + (send_count_ % BUFFER_SIZE)), BULK_SIZE * 2);
+            usb_hw_clear->buf_status = ep->bit;
             usb_init_transfer(ep, UNKNOWN_SIZE);
             send_count_ += BULK_SIZE * 2;
             ep->pos += BULK_SIZE * 2; // when streaming, buffer done is broken ?

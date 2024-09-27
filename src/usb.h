@@ -24,6 +24,7 @@ void usb_cancel_transfer(struct usb_endpoint_configuration *ep);
 struct usb_endpoint_configuration *usb_get_endpoint_configuration(uint8_t addr);
 uint8_t usb_get_address(void);
 volatile uint8_t *usb_get_dpram_buffer(struct usb_endpoint_configuration *ep);
+void set_bsh(uint bsh);
 
 #ifdef __cplusplus
 }

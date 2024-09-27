@@ -517,3 +517,7 @@ void usb_cancel_transfer(struct usb_endpoint_configuration *ep) {
 }
 
 uint8_t usb_get_address(void) { return dev_addr; }
+
+void set_bsh(uint bsh) {
+    buf_cpu_should_handle = bsh;
+}
