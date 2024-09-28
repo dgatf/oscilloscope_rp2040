@@ -45,7 +45,6 @@ static struct usb_endpoint_configuration *ep;
 bool should_stop = false;
 
 static inline void prepare_buffers(void);
-static inline bool is_buffer_a(void);
 
 static void core1_entry(void) {
     while (1) {
@@ -59,18 +58,21 @@ static void core1_entry(void) {
     }
 }
 
-static inline bool is_buffer_a(void) {
-    uint a = send_count_ / BULK_SIZE;
-    bool b = a & 1;
-    // debug("\nSC %u a%u !b %u", send_count_, a, !b);
-    return !b;  // buffer a for 0,2,4,6...
-}
-
 static inline void prepare_buffers(void) {
     if (should_stop) {
+        if (!ep->double_buffer) {
+            while (*ep->buffer_control & USB_BUF_CTRL_AVAIL)
+                ;
+        } else {
+            if (!ep->next_pid) {
+                while (*ep->buffer_control & USB_BUF_CTRL_AVAIL)
+                    ;
+            } else {
+                while ((*ep->buffer_control >> 16) & USB_BUF_CTRL_AVAIL)
+                    ;
+            }
+        }
         ep->lenght = ep->pos_send;
-        while (*ep->buffer_control & USB_BUF_CTRL_AVAIL)
-            ;
         usb_continue_transfer(ep);
         adc_run(false);
         irq_set_enabled(DMA_IRQ_0, false);
@@ -81,6 +83,7 @@ static inline void prepare_buffers(void) {
         ep->next_pid = 0;
         return;
     }
+
     if (ep->status == STATUS_BUSY) {
         if (!ep->double_buffer) {
             if (!(*ep->buffer_control & USB_BUF_CTRL_AVAIL)) {
