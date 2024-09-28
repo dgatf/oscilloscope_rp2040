@@ -50,6 +50,10 @@ static inline bool is_buffer_a(void);
 static void core1_entry(void) {
     while (1) {
         if (sample_count_ - ep->pos >= BULK_SIZE) {
+            if (sample_count_ - ep->pos > BUFFER_SIZE) {
+                ep->pos += BUFFER_SIZE;
+                debug("\nBuffer Overflow");
+            }
             prepare_buffers();
         }
     }
@@ -65,24 +69,26 @@ static inline bool is_buffer_a(void) {
 static inline void prepare_buffers(void) {
     if (should_stop) {
         ep->lenght = ep->pos_send;
-        while (*ep->buffer_control & USB_BUF_CTRL_AVAIL);
+        while (*ep->buffer_control & USB_BUF_CTRL_AVAIL)
+            ;
         usb_continue_transfer(ep);
         adc_run(false);
         irq_set_enabled(DMA_IRQ_0, false);
         irq_clear(DMA_IRQ_0);
         should_stop = false;
         ep->status == STATUS_OK;
-        ep->lenght = -1;
+        ep->lenght = UNKNOWN_SIZE;
         ep->next_pid = 0;
         return;
     }
     if (ep->status == STATUS_BUSY) {
         if (!ep->double_buffer) {
             if (!(*ep->buffer_control & USB_BUF_CTRL_AVAIL)) {
-                if (config_.no_conversion)
-                    memcpy((void *)ep->dpram_buffer_a, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
-                else {
-                    uint pos = (send_count_ % (BUFFER_SIZE >> 1));
+                if (config_.no_conversion) {
+                    uint pos = send_count_ % BUFFER_SIZE;
+                    for (uint i = 0; i < BULK_SIZE; i++) *(ep->dpram_buffer_a + i) = *(buffer_ + pos + i);
+                } else {
+                    uint pos = send_count_ % (BUFFER_SIZE >> 1);
                     uint ch_gain;
                     for (uint i = 0; i < BULK_SIZE; i++) {
                         if (channel_mask_ == 0b11 && (i % 2))
@@ -96,18 +102,17 @@ static inline void prepare_buffers(void) {
                         *(ep->dpram_buffer_a + i) = value;
                     }
                 }
-                usb_hw_clear->buf_status = ep->bit;
                 usb_continue_transfer(ep);
-                ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
                 send_count_ += BULK_SIZE;
             }
         } else {
             if (!ep->next_pid) {
                 if (!((*ep->buffer_control) & USB_BUF_CTRL_AVAIL)) {
-                    if (config_.no_conversion)
-                        memcpy((void *)ep->dpram_buffer_a, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
-                    else {
-                        uint pos = (send_count_ % BUFFER_SIZE);
+                    if (config_.no_conversion) {
+                        uint pos = send_count_ % BUFFER_SIZE;
+                        for (uint i = 0; i < BULK_SIZE; i++) *(ep->dpram_buffer_a + i) = *(buffer_ + pos + i);
+                    } else {
+                        uint pos = send_count_ % (BUFFER_SIZE >> 1);
                         uint ch_gain;
                         for (uint i = 0; i < BULK_SIZE; i++) {
                             if (channel_mask_ == 0b11 && (i % 2))
@@ -122,17 +127,16 @@ static inline void prepare_buffers(void) {
                         }
                     }
                     set_bsh(0);
-                    usb_hw_clear->buf_status = ep->bit;
                     usb_continue_transfer(ep);
-                    ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
                     send_count_ += BULK_SIZE;
                 }
             } else {
                 if (!((*ep->buffer_control >> 16) & USB_BUF_CTRL_AVAIL)) {
-                    if (config_.no_conversion)
-                        memcpy((void *)ep->dpram_buffer_b, (void *)buffer_ + (send_count_ % BUFFER_SIZE), BULK_SIZE);
-                    else {
-                        uint pos = (send_count_ % BUFFER_SIZE);
+                    if (config_.no_conversion) {
+                        uint pos = send_count_ % BUFFER_SIZE;
+                        for (uint i = 0; i < BULK_SIZE; i++) *(ep->dpram_buffer_b + i) = *(buffer_ + pos + i);
+                    } else {
+                        uint pos = send_count_ % (BUFFER_SIZE >> 1);
                         uint ch_gain;
                         for (uint i = 0; i < BULK_SIZE; i++) {
                             if (channel_mask_ == 0b11 && (i % 2))
@@ -147,9 +151,7 @@ static inline void prepare_buffers(void) {
                         }
                     }
                     set_bsh(4096);
-                    usb_hw_clear->buf_status = ep->bit;
                     usb_continue_transfer(ep);
-                    ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
                     send_count_ += BULK_SIZE;
                 }
             }
@@ -157,17 +159,12 @@ static inline void prepare_buffers(void) {
     } else {
         if (!ep->double_buffer) {
             memcpy((void *)ep->dpram_buffer_a, (void *)(buffer_ + (send_count_ % BUFFER_SIZE)), BULK_SIZE);
-            usb_hw_clear->buf_status = ep->bit;
             usb_init_transfer(ep, UNKNOWN_SIZE);
             send_count_ += BULK_SIZE;
-            ep->pos += BULK_SIZE; // when streaming, buffer done is broken ?
         } else if (sample_count_ >= BULK_SIZE * 2) {
-            //debug_block("\nX");
             memcpy((void *)ep->dpram_buffer_a, (void *)(buffer_ + (send_count_ % BUFFER_SIZE)), BULK_SIZE * 2);
-            usb_hw_clear->buf_status = ep->bit;
             usb_init_transfer(ep, UNKNOWN_SIZE);
             send_count_ += BULK_SIZE * 2;
-            ep->pos += BULK_SIZE * 2; // when streaming, buffer done is broken ?
         }
     }
 }
@@ -383,5 +380,6 @@ void protocol_complete_handler(void) {
 void protocol_init(uint8_t *buffer) {
     buffer_ = buffer;
     ep = usb_get_endpoint_configuration(EP6_IN_ADDR);
+    ep->pos = 0;
     multicore_launch_core1(core1_entry);
 }

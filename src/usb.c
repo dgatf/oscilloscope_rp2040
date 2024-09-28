@@ -11,13 +11,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common.h"
 #include "hardware/irq.h"
 #include "hardware/regs/usb.h"
 #include "hardware/resets.h"
 #include "hardware/structs/usb.h"
 #include "pico/stdlib.h"
 #include "usb_config.c"
-#include "common.h"
 
 #define ISOCHRONOUS_MASK 0x18000000u
 
@@ -258,9 +258,8 @@ static void handle_setup_packet(void) {
             acknowledge_in_request();
         else
             acknowledge_out_request();
-    else {
+    else
         prepare_control_packet(pkt);
-    }
 }
 
 static inline uint get_ep_bit(struct usb_endpoint_configuration *ep) {
@@ -402,7 +401,7 @@ static void handle_buff_done(uint ep_num, bool in) {
     uint8_t ep_addr = ep_num | (in ? USB_DIR_IN : 0);
     for (uint i = 0; i < USB_NUM_ENDPOINTS; i++) {
         struct usb_endpoint_configuration *ep = &dev_config.endpoints[i];
-        if (ep->descriptor && ep->handler) {
+        if (ep->descriptor) {
             if (ep->descriptor->bEndpointAddress == ep_addr) {
                 handle_ep_buff_done(ep);
                 return;
@@ -518,6 +517,6 @@ void usb_cancel_transfer(struct usb_endpoint_configuration *ep) {
 
 uint8_t usb_get_address(void) { return dev_addr; }
 
-void set_bsh(uint bsh) {
-    buf_cpu_should_handle = bsh;
-}
+bool usb_is_buffer_b(struct usb_endpoint_configuration *ep) { return buf_cpu_should_handle & ep->bit; }
+
+void set_bsh(uint bsh) { buf_cpu_should_handle = bsh; }

@@ -45,6 +45,7 @@ static void (*handler_)(void) = NULL;
 static inline void complete_handler(void);
 
 void oscilloscope_init(void) {
+    
     // init pins
     adc_init();
     adc_set_temp_sensor_enabled(true);
@@ -52,12 +53,12 @@ void oscilloscope_init(void) {
     adc_gpio_init(27);
     adc_gpio_init(28);
     
-    protocol_init(buffer_);
-
     // calibration pwm
     oscilloscope_config_.calibration_freq = 1000;
     gpio_set_function(GPIO_CALIBRATION, GPIO_FUNC_PWM);
     slice_num_ = pwm_gpio_to_slice_num(GPIO_CALIBRATION);
+
+    protocol_init(buffer_);
 }
 
 void oscilloscope_start(void) {
