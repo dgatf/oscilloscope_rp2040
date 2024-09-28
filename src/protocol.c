@@ -49,7 +49,7 @@ static inline bool is_buffer_a(void);
 
 static void core1_entry(void) {
     while (1) {
-        if (sample_count_ - ep->pos >= BULK_SIZE) {
+        if (sample_count_ - ep->pos >= BULK_SIZE * 2) {
             if (sample_count_ - ep->pos > BUFFER_SIZE) {
                 ep->pos += BUFFER_SIZE;
                 debug("\nBuffer Overflow");

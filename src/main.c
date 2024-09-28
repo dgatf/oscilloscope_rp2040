@@ -35,8 +35,6 @@ int main() {
     *reg = 0x820;                                                                              // clk_sys, enable
     set_pin_config();
 
-    config_.debug_is_enabled = true; // For some mysterous reason, debug must be enabled with multicore ?
-
     debug_init(115200, debug_message_, &config_.debug_is_enabled);
     debug("\n\n%s - v%i.%i", DEVICE_NAME, VERSION_MAYOR, VERSION_MINOR);
 
