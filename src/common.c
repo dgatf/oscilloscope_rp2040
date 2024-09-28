@@ -27,7 +27,7 @@
 
 static char *buffer_;
 static bool *is_enabled_;
-static bool baudrate_;
+static uint baudrate_;
 
 
 void debug_init(uint baudrate, char *buffer, bool *is_enabled) {
