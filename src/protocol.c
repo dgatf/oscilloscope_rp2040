@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "hardware/adc.h"
+#include "hardware/dma.h"
 #include "hardware/regs/usb.h"
 #include "hardware/structs/usb.h"
 #include "pico/multicore.h"
@@ -37,10 +38,7 @@ extern char debug_message_[DEBUG_BUFFER_SIZE];
 static uint8_t *buffer_;
 static uint16_t *buffer16_;
 static uint send_count_ = 0, channel_center_;
-static volatile uint sample_count_ = 0, channel_mask_, channel_factor_[2], ch2_enabled_;
-static volatile bool change_channels_ = false;
-static volatile command_t command_ = NONE;
-static volatile bool send_cal_ = false;
+static volatile uint sample_count_ = 0, channel_factor_[2];
 static struct usb_endpoint_configuration *ep;
 bool should_stop = false;
 
@@ -94,7 +92,7 @@ static inline void prepare_buffers(void) {
                     uint pos = send_count_ % (BUFFER_SIZE >> 1);
                     uint ch_gain;
                     for (uint i = 0; i < BULK_SIZE; i++) {
-                        if (channel_mask_ == 0b11 && (i % 2))
+                        if (oscilloscope_config_.channel_mask == 0b11 && (i % 2))
                             ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
                         else
                             ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
@@ -118,7 +116,7 @@ static inline void prepare_buffers(void) {
                         uint pos = send_count_ % (BUFFER_SIZE >> 1);
                         uint ch_gain;
                         for (uint i = 0; i < BULK_SIZE; i++) {
-                            if (channel_mask_ == 0b11 && (i % 2))
+                            if (oscilloscope_config_.channel_mask == 0b11 && (i % 2))
                                 ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
                             else
                                 ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
@@ -142,7 +140,7 @@ static inline void prepare_buffers(void) {
                         uint pos = send_count_ % (BUFFER_SIZE >> 1);
                         uint ch_gain;
                         for (uint i = 0; i < BULK_SIZE; i++) {
-                            if (channel_mask_ == 0b11 && (i % 2))
+                            if (oscilloscope_config_.channel_mask == 0b11 && (i % 2))
                                 ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
                             else
                                 ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
@@ -185,7 +183,6 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
         switch (pkt->bRequest) {
             case 0xA2:  // get calibration
             {
-                // command_ = GET_CALIBRATION;
                 debug("\nCommand get calibration.");
                 break;
             }
@@ -293,7 +290,6 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
             {
                 if (buf[0] == 1) {
                     if (oscilloscope_state() == IDLE) {
-                        // command_ = START;
                         debug("\nCommand start sampling");
                         sample_count_ = 0;
                         send_count_ = 0;
@@ -318,14 +314,11 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
             {
                 if (buf[0] == 1) {
                     oscilloscope_config_.channel_mask = 0b01;
-                    channel_mask_ = 0b01;
-                    ch2_enabled_ = false;
+                    oscilloscope_set_channels(oscilloscope_config_.channel_mask);
                 } else if (buf[0] == 2) {
                     oscilloscope_config_.channel_mask = 0b11;
-                    channel_mask_ = 0b11;
-                    ch2_enabled_ = true;
+                    oscilloscope_set_channels(oscilloscope_config_.channel_mask);
                 }
-                change_channels_ = true;
                 debug("\nCommand set channel mask: %u", oscilloscope_config_.channel_mask);
                 if (oscilloscope_config_.channel_mask == 0b01)
                     oscilloscope_set_samplerate(oscilloscope_config_.samplerate);
@@ -369,16 +362,7 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
     }
 }
 
-void protocol_complete_handler(void) {
-    if (change_channels_) {
-        if (channel_mask_ == 0b01)
-            adc_hw->cs = 0x1000B;
-        else
-            adc_hw->cs = 0x3000B;
-        change_channels_ = false;
-    }
-    sample_count_ += BULK_SIZE;
-}
+void protocol_complete_handler(void) { sample_count_ += BULK_SIZE; }
 
 void protocol_init(uint8_t *buffer) {
     buffer_ = buffer;

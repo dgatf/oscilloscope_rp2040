@@ -26,7 +26,6 @@
 #include "pico/stdlib.h"
 #include "protocol.h"
 
-
 #define GPIO_COUPLING_CH1_DC 20
 #define GPIO_COUPLING_CH2_DC 21
 #define GPIO_CALIBRATION 22
@@ -45,14 +44,13 @@ static void (*handler_)(void) = NULL;
 static inline void complete_handler(void);
 
 void oscilloscope_init(void) {
-    
     // init pins
     adc_init();
     adc_set_temp_sensor_enabled(true);
     adc_gpio_init(26);
     adc_gpio_init(27);
     adc_gpio_init(28);
-    
+
     // calibration pwm
     oscilloscope_config_.calibration_freq = 1000;
     gpio_set_function(GPIO_CALIBRATION, GPIO_FUNC_PWM);
@@ -116,7 +114,7 @@ void oscilloscope_start(void) {
                           &adc_hw->fifo,  // read address
                           BULK_SIZE, true);
 
-    oscilloscope_set_channels(oscilloscope_config_.channel_mask);
+    adc_set_round_robin(oscilloscope_config_.channel_mask);
     adc_run(true);
 
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -144,11 +142,32 @@ void oscilloscope_set_samplerate(uint samplerate) {
 }
 
 void oscilloscope_set_channels(uint8_t mask) {
-    adc_set_round_robin(mask);  // GPIO 26-28
+    if (mask == 0b01) {
+        adc_run(false);
+        uint val = adc_hw->cs;
+        val &= ~0x001f0000;
+        val |= 1 << 16;
+        adc_hw->cs = val;
+        adc_run(true);
+    }
+    if (mask == 0b11) {
+        adc_run(false);
+        uint val = adc_hw->cs;
+        val &= ~0x001f0000;
+        val |= 0b11 << 16;
+        if (dma_hw->ch[0].transfer_count & 1) {
+            val &= ~0x00007000;
+            val |= 1 << 12;
+        } else {
+            val &= ~0x00007000;
+        }
+        adc_hw->cs = val;
+        adc_run(true);
+    }
 }
 
 void oscilloscope_set_calibration_frequency(uint freq) {
-    if (freq == 0) freq = 100;  // 100 Hz
+    if (freq == 0) freq = 100;  // Hz
     oscilloscope_config_.calibration_freq = freq;
     float clk_div = clock_get_hz(clk_sys) / freq / 65536.0;
     pwm_config config = pwm_get_default_config();
