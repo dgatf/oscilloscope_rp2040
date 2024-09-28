@@ -143,16 +143,14 @@ void oscilloscope_set_samplerate(uint samplerate) {
 
 void oscilloscope_set_channels(uint8_t mask) {
     if (mask == 0b01) {
-        adc_run(false);
         uint val = adc_hw->cs;
         val &= ~0x001f0000;
         val |= 1 << 16;
         adc_hw->cs = val;
-        adc_run(true);
     }
-    if (mask == 0b11) {
-        adc_run(false);
+    else if (mask == 0b11) {
         uint val = adc_hw->cs;
+        adc_run(false);
         val &= ~0x001f0000;
         val |= 0b11 << 16;
         if (dma_hw->ch[0].transfer_count & 1) {
