@@ -33,9 +33,11 @@ int main() {
     if (clock_get_hz(clk_sys) != 250000000) set_sys_clock_khz(250000, true);
     volatile uint32_t *reg = (volatile uint32_t *)(CLOCKS_BASE + CLOCKS_CLK_ADC_CTRL_OFFSET);  // CLK_ADC_CTRL
     *reg = 0x820;                                                                              // clk_sys, enable
-    set_pin_config();
 
-    debug_init(115200, debug_message_, &config_.debug_is_enabled);
+    set_pin_config();
+    config_.is_multicore = true;
+
+    debug_init(57600, debug_message_, &config_.debug_is_enabled);
     debug("\n\n%s - v%i.%i", DEVICE_NAME, VERSION_MAYOR, VERSION_MINOR);
 
     usb_device_init();
@@ -49,6 +51,7 @@ int main() {
     oscilloscope_init();
 
     while (1) {
+        if (!config_.is_multicore) protocol_task();
     }
 }
 

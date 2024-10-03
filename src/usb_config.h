@@ -25,7 +25,7 @@ extern "C" {
 #define STATUS_OK 0
 #define STATUS_BUSY 1
 #define STATUS_BUFFER_OVERFLOW 2
-#define STATUS_LENGHT_OVERFLOW 3
+#define STATUS_LENGTH_OVERFLOW 3
 #define PACKET_SIZE_CONTROL 64
 #define PACKET_SIZE_INTERRUPT 64
 #define PACKET_SIZE_BULK 64
@@ -68,9 +68,10 @@ struct usb_endpoint_configuration {
     uint8_t *data_buffer;
     bool double_buffer;
     uint8_t next_pid;
-    int32_t lenght;
+    int32_t length;
     int32_t pos;
     int32_t pos_send;
+    bool is_start;
     bool is_completed;
     uint status;
     uint data_buffer_size;

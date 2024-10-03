@@ -122,6 +122,9 @@ void oscilloscope_start(void) {
 
 void oscilloscope_stop(void) {
     dma_channel_abort(dma_channel_adc_);
+    adc_run(false);
+    irq_set_enabled(DMA_IRQ_0, false);
+    irq_clear(DMA_IRQ_0);
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
     state_ = IDLE;
     debug("\nOscilloscope stop");
@@ -147,8 +150,7 @@ void oscilloscope_set_channels(uint8_t mask) {
         val &= ~0x001f0000;
         val |= 1 << 16;
         adc_hw->cs = val;
-    }
-    else if (mask == 0b11) {
+    } else if (mask == 0b11) {
         uint val = adc_hw->cs;
         adc_run(false);
         val &= ~0x001f0000;

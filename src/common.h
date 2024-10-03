@@ -46,6 +46,7 @@ typedef struct calibration_t {
 typedef struct config_t {
     bool debug_is_enabled;
     bool no_conversion;
+    bool is_multicore;
 } config_t;
 
 typedef struct oscilloscope_config_t {

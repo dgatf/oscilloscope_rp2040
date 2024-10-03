@@ -46,7 +46,6 @@ typedef enum command_t {
 void protocol_task(void);
 void protocol_sample_handler(void);
 void protocol_init(uint8_t *buffer);
-void protocol_stop(void);
 void protocol_complete_handler(void);
 
 #ifdef __cplusplus
