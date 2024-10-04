@@ -59,16 +59,16 @@ void protocol_task(void) {
             (sample_count_ - ep->pos >= BULK_SIZE * 2)) {
         if (config_.no_conversion) {
             if (sample_count_ - ep->pos > BUFFER_SIZE) {
-                // ep->pos += BULK_SIZE;
-                // ep->pos_send += BULK_SIZE;
-                // debug("\nBOF");
+                ep->pos += BUFFER_SIZE;
+                ep->pos_send += BUFFER_SIZE;
+                debug("\nBOF");
             }
             prepare_buffers();
         } else {
             if (sample_count_ - ep->pos > (BUFFER_SIZE >> 1)) {
-                // ep->pos += BULK_SIZE;
-                // ep->pos_send += BULK_SIZE;
-                // debug("\nBOF");
+                ep->pos += BUFFER_SIZE >> 1;
+                ep->pos_send += BUFFER_SIZE >> 1;
+                debug("\nBOF");
             }
             prepare_buffers();
         }
