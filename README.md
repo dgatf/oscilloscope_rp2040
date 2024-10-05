@@ -34,7 +34,7 @@ __Pins__
 
 Without the [external circuit](#external-circuit), voltage at channels (GPIO 26 & 27) must be between 0 and 3.3V.  
 
-Debug output is on GPIO 16 at 115200bps. To enable debug, connect to ground GPIO 18 at boot.
+Debug output is on GPIO 16 at 57600bps. To enable debug, connect to ground GPIO 18 at boot.
 
 Led is on during the capture process.
 
