@@ -30,10 +30,8 @@ char debug_message_[DEBUG_BUFFER_SIZE];
 void set_pin_config(void);
 
 int main() {
-    if (clock_get_hz(clk_sys) != 250000000) set_sys_clock_khz(250000, true);
-    volatile uint32_t *reg = (volatile uint32_t *)(CLOCKS_BASE + CLOCKS_CLK_ADC_CTRL_OFFSET);  // CLK_ADC_CTRL
-    *reg = 0x820;                                                                              // clk_sys, enable
-
+    if (clock_get_hz(clk_sys) != 240000000) set_sys_clock_khz(240000, true);
+    
     set_pin_config();
     config_.is_multicore = true;
 

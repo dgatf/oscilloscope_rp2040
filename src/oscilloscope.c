@@ -38,7 +38,7 @@ static const uint dma_channel_adc_ = 0, dma_channel_reload_adc_counter_ = 1, rel
 static uint slice_num_;
 static state_t state_ = IDLE;
 static uint8_t buffer_[BUFFER_SIZE] __attribute__((aligned(BUFFER_SIZE * sizeof(uint8_t)))) = {0};
-
+static volatile uint32_t *clk_adc_ctrl = (volatile uint32_t *)(CLOCKS_BASE + CLOCKS_CLK_ADC_CTRL_OFFSET);
 static void (*handler_)(void) = NULL;
 
 static inline void complete_handler(void);
@@ -135,11 +135,18 @@ void oscilloscope_task(void) { protocol_task(); }
 state_t oscilloscope_state(void) { return state_; }
 
 void oscilloscope_set_samplerate(uint samplerate) {
+    float clk_div;
     if (!samplerate) {
         oscilloscope_config_.samplerate = 100000;
         samplerate = 100000;
     }
-    float clk_div = clock_get_hz(clk_sys) / samplerate;
+    if (samplerate > 500e3) {
+        clk_div = clock_get_hz(clk_sys) / samplerate;
+        *clk_adc_ctrl = 0x820;  // clk_sys}
+    } else {
+        clk_div = clock_get_hz(clk_usb) / samplerate;
+        *clk_adc_ctrl = 0x800;  // clk_usb
+    }
     debug("\nSet samplerate (clk div: %.2f): %u", clk_div, samplerate);
     adc_set_clkdiv(clk_div);
 }

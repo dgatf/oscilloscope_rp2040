@@ -25,7 +25,7 @@ extern "C" {
 
 #include "common.h"
 
-#define BUFFER_RING_BITS 14
+#define BUFFER_RING_BITS 15
 #define BUFFER_SIZE (1 << BUFFER_RING_BITS)  // 1024 bytes
 
 typedef enum state_t { IDLE, RUNNING } state_t;

@@ -40,6 +40,7 @@ static volatile uint sample_count_ = 0, channel_factor_[2];
 static struct usb_endpoint_configuration *ep;
 static volatile bool should_stop = false;
 static critical_section_t lock;
+static volatile bool is_adc_paused = false;
 
 static void core1_entry(void);
 static void prepare_buffers(void);
@@ -53,6 +54,10 @@ static void core1_entry(void) {
 
 void protocol_task(void) {
     if (config_.is_multicore) critical_section_enter_blocking(&lock);
+    if (is_adc_paused && sample_count_ - ep->pos < BUFFER_SIZE >> 5) {
+        is_adc_paused = false;
+        adc_run(true);
+    }
     if ((!ep->double_buffer && sample_count_ - ep->pos >= BULK_SIZE * 2) ||
         (ep->double_buffer &&
          (ep->pos_send - ep->pos == BULK_SIZE || ep->status == STATUS_OK || ep->pos_send == ep->length)) &&
@@ -331,7 +336,13 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
     }
 }
 
-void protocol_complete_handler(void) { sample_count_ += BULK_SIZE; }
+void protocol_complete_handler(void) {
+    sample_count_ += BULK_SIZE;
+    if (sample_count_ % 20000 > 19900 && sample_count_ - ep->pos > BUFFER_SIZE >> 2) {
+        is_adc_paused = true;
+        adc_run(false);
+    }
+}
 
 void protocol_init(uint8_t *buffer) {
     buffer_ = buffer;
