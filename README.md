@@ -4,7 +4,7 @@ An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.c
 
 ## Specifications
 
-- 1 MS/s
+- 2 MS/s
 - 2 channels
 
 ## Usage
@@ -80,6 +80,14 @@ If not using the external circuit we need to convert the signal from +3.3V-0V to
 Copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (linux)* or *%USERPROFILE%\.config\OpenHantek* (windows).
 
 If using the external cirucuit, set the offsets to 0 and gains to 1 or delete the calibration file.
+
+## Remarks
+
+RP2040 is overclcked to 240MHz. Use at your own risk.  
+
+For rates of 1MS/s and higher, some samples are dropped. This is a limitation of the USB full speed of the RP2040.  
+
+For rates over 500kS/s, the ADC is overclocked to 240MHz. It is maybe less accurate.  
 
 ## Binaries
 
