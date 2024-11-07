@@ -19,7 +19,7 @@ An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.c
         - Linux: [OpenHantek6022-RP2040.AppImage](#binaries). You may need to copy OpenHantek [udev rules](https://github.com/dgatf/OpenHantek6022/tree/main/utils).
         - Windows: [OpenHantek6022-RP2040.exe](#binaries).
 
-    - If not using an [external circuit](#external-circuit), copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (linux)* or *%USERPROFILE%\.config\OpenHantek* (windows).
+    - The external circuit is optional. If not using an [external circuit](#external-circuit), copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (linux)* or *%USERPROFILE%\.config\OpenHantek* (windows).
 
 3. Launch OpenHantek6022 (modifed version). 
 
@@ -42,7 +42,7 @@ Led is on during the capture process.
 
 <p align="center"><img src="./images/openhantek.png" width="600"><br>  
 
-## External circuit ##
+## External circuit (optional) ##
 
 Configure the input signal from +3.3V-0V to +5V-5V and add AC coupling.
 
@@ -83,7 +83,7 @@ If using the external cirucuit, set the offsets to 0 and gains to 1 or delete th
 
 ## Remarks
 
-RP2040 is overclcked to 240MHz. Use at your own risk.  
+RP2040 is overclocked to 240MHz. Use at your own risk.  
 
 For rates of 1MS/s and higher, some samples are dropped. This is a limitation of the USB full speed of the RP2040.  
 
