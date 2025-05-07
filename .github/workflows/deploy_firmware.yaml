@@ -1,0 +1,37 @@
+name: Deploy openhantek firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - src/**
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get actions code
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Create build folder
+        run: mkdir build
+        
+      - name: Build firmware
+        uses: samyarsadat/Pico-Build-Action@v1
+        with:
+          source_dir: "src"
+          cmake_args: "-DCMAKE_BUILD_TYPE=Release"
+          output_dir: "../build"
+        
+      - name: Upload to Google Drive
+        uses: logickoder/g-drive-upload@main
+        with:
+          credentials: ${{ secrets.GOOGLE_ID }}
+          filename: 'build/oscilloscope.uf2'
+          folderId: ${{ secrets.FOLDER_ID }}
+          overwrite: 'true'
