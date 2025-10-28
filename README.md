@@ -2,6 +2,8 @@
 
 An oscilloscope for the RP2040 that implements [OpenHantek6022](https://github.com/OpenHantek/OpenHantek6022) protocol.
 
+<p align="center"><img src="./images/3d_model.png" width="400"><br>  
+
 ## Specifications
 
 - 2 MS/s
@@ -94,6 +96,27 @@ For rates over 500kS/s, the ADC is overclocked to 240MHz. It is maybe less accur
 - RP2040: [oscilloscope.uf2](https://drive.google.com/file/d/11BkBbbuAzuO7nqTozGVK0Epi27-wBS4m/view?usp=drive_link)
 - Linux: [OpenHantek6022-RP2040.AppImage](https://drive.google.com/file/d/1I9Y5-4aRr0rqPs-FJkVPN9S7YzMd2pfn/view?usp=sharing)
 - Winodws: [OpenHantek6022-RP2040.exe](https://drive.google.com/file/d/1WyPk89JrXQqL9sIHauAQx42BuTifEYTn/view?usp=sharing)
+
+
+## 3D print case
+
+You can print a 3D case.
+
+Solder pins 21 to 24 (GPIOS 16 to 18) and pins 28 to 32 (GND to ADC1) with female headers. Use M1x3 screws or similar.
+
+You have available GND at pins 23 and 28. Note you can reset the RP2040 connecting  pin 30 (RUN) to GND at any time.
+
+3D files in folder [case](/case):
+
+- Use FCSTd (FreeCad) to edit the 3D model.
+- Use stl files to import to your 3D printer system.
+- Or use gcode file to print directly on your 3D printer. Created with fine parameters and 0.12mm layer.
+
+<p align="center"><img src="./images/3d_model.png" width="600"><br>  
+
+<p align="center"><img src="./images/case_closed.jpg" width="600"><br>  
+
+<p align="center"><img src="./images/case_open.jpg" width="600"><br>  
 
 ## References
 
