@@ -338,6 +338,12 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
 
 void protocol_complete_handler(void) {
     sample_count_ += BULK_SIZE;
+    // ep->pos is written by Core 1 inside the critical section and read here
+    // from the Core 0 DMA ISR without a lock.  On Cortex-M0+ a 32-bit aligned
+    // load is atomic, so we either see the old or the new value — both are
+    // valid for this heuristic ADC back-pressure check.  The generous 25%
+    // threshold and the large resume hysteresis (3%) absorb the ±BULK_SIZE
+    // uncertainty introduced by the race.
     if (sample_count_ % 20000 > 19900 && sample_count_ - ep->pos > BUFFER_SIZE >> 2) {
         is_adc_paused = true;
         adc_run(false);

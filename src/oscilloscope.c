@@ -88,7 +88,11 @@ void oscilloscope_start(void) {
         );
     }
 
-    oscilloscope_set_samplerate(oscilloscope_config_.samplerate * oscilloscope_config_.channel_mask);
+    // For 2-channel round-robin the ADC must run at 2× the per-channel rate.
+    // channel_mask is 0b01 (1 channel) or 0b11 (2 channels, numeric value 3);
+    // using the mask value directly as a multiplier would set ×3 instead of ×2.
+    uint ch_count = (oscilloscope_config_.channel_mask == 0b11) ? 2 : 1;
+    oscilloscope_set_samplerate(oscilloscope_config_.samplerate * ch_count);
 
     // dma channel adc reload counter
     dma_channel_config config_dma_channel_reload_adc_counter =
@@ -128,8 +132,16 @@ void oscilloscope_start(void) {
 }
 
 void oscilloscope_stop(void) {
+    // dma_channel_abort() writes DMA hardware registers and is safe from any core.
+    // It stops the channel before any further completions can be generated.
     dma_channel_abort(dma_channel_adc_);
     adc_run(false);
+    // NOTE: in multicore mode this function is called from Core 1 (protocol_task).
+    // irq_set_enabled() and irq_clear() target the calling core's NVIC.  The
+    // DMA_IRQ_0 handler was registered on Core 0 (oscilloscope_start runs before
+    // multicore launch), so these calls are effectively no-ops from Core 1.
+    // The abort above already prevents new completions, making the Core 0 IRQ
+    // dormant without needing an explicit disable on that core.
     irq_set_enabled(DMA_IRQ_0, false);
     irq_clear(DMA_IRQ_0);
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
@@ -216,6 +228,10 @@ void oscilloscope_set_coupling(channel_t channel, coupling_t coupling) {
 }
 
 static inline void complete_handler(void) {
-    protocol_complete_handler();
+    // Clear the interrupt flag first so that a new DMA completion occurring
+    // during protocol_complete_handler() re-sets it and causes a fresh IRQ.
+    // Clearing after the handler would silently consume that second event,
+    // causing sample_count_ to be under-counted at high sample rates.
     dma_hw->ints0 = 1u << dma_channel_adc_;
+    protocol_complete_handler();
 }
