@@ -88,7 +88,8 @@ void oscilloscope_start(void) {
         );
     }
 
-    oscilloscope_set_samplerate(oscilloscope_config_.samplerate * oscilloscope_config_.channel_mask);
+    uint ch_count = (oscilloscope_config_.channel_mask == 0b11) ? 2 : 1;
+    oscilloscope_set_samplerate(oscilloscope_config_.samplerate * ch_count);
 
     // dma channel adc reload counter
     dma_channel_config config_dma_channel_reload_adc_counter =
@@ -216,6 +217,6 @@ void oscilloscope_set_coupling(channel_t channel, coupling_t coupling) {
 }
 
 static inline void complete_handler(void) {
-    protocol_complete_handler();
     dma_hw->ints0 = 1u << dma_channel_adc_;
+    protocol_complete_handler();
 }
