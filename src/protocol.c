@@ -112,7 +112,7 @@ static inline void prepare_buffers(void) {
         sample_count_ = 0;
         ep->pos = 0;
         ep->pos_send = 0;
-        ep->status == STATUS_OK;
+        ep->status = STATUS_OK;
         ep->next_pid = 0;
         ep->is_completed = false;
         *ep->buffer_control = 0;
@@ -348,5 +348,6 @@ void protocol_init(uint8_t *buffer) {
     buffer_ = buffer;
     ep = usb_get_endpoint_configuration(EP6_IN_ADDR);
     ep->pos = 0;
+    critical_section_init(&lock);
     if (config_.is_multicore) multicore_launch_core1(core1_entry);
 }

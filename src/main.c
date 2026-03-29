@@ -27,19 +27,19 @@ config_t config_;
 volatile oscilloscope_config_t oscilloscope_config_;
 char debug_message_[DEBUG_BUFFER_SIZE];
 
-void set_pin_config(void);
+static void set_pin_config(void);
 
 int main() {
     if (clock_get_hz(clk_sys) != 240000000) set_sys_clock_khz(240000, true);
-    
     set_pin_config();
     config_.is_multicore = true;
 
     debug_init(57600, debug_message_, &config_.debug_is_enabled);
-    debug("\n\n%s - v%i.%i", DEVICE_NAME, VERSION_MAYOR, VERSION_MINOR);
+    debug("\n\n%s - v%s", DEVICE_NAME, PROJECT_VERSION);
 
     usb_device_init();
     while (!usb_is_configured()) {
+        tight_loop_contents();
     }
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
@@ -53,7 +53,7 @@ int main() {
     }
 }
 
-void set_pin_config(void) {
+static void set_pin_config(void) {
     gpio_init_mask((1 << GPIO_DEBUG_ENABLE) | (1 << GPIO_NO_CONVERSION));
     gpio_set_dir_masked((1 << GPIO_DEBUG_ENABLE) | (1 << GPIO_NO_CONVERSION), false);
     gpio_pull_up(GPIO_DEBUG_ENABLE);

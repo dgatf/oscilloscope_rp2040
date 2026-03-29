@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef USB_LOWLEVEL_H
-#define USB_LOWLEVEL_H
+#ifndef USB_H
+#define USB_H
 
 #ifdef __cplusplus
 extern "C" {

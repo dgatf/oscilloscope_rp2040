@@ -46,10 +46,17 @@ static inline void complete_handler(void);
 void oscilloscope_init(void) {
     // init pins
     adc_init();
-    adc_set_temp_sensor_enabled(true);
     adc_gpio_init(26);
     adc_gpio_init(27);
     adc_gpio_init(28);
+
+    gpio_init(GPIO_COUPLING_CH1_DC);
+    gpio_set_dir(GPIO_COUPLING_CH1_DC, GPIO_OUT);
+    gpio_put(GPIO_COUPLING_CH1_DC, false);
+
+    gpio_init(GPIO_COUPLING_CH2_DC);
+    gpio_set_dir(GPIO_COUPLING_CH2_DC, GPIO_OUT);
+    gpio_put(GPIO_COUPLING_CH2_DC, false);
 
     // calibration pwm
     oscilloscope_config_.calibration_freq = 1000;
@@ -162,7 +169,7 @@ void oscilloscope_set_channels(uint8_t mask) {
         adc_run(false);
         val &= ~0x001f0000;
         val |= 0b11 << 16;
-        if (dma_hw->ch[0].transfer_count & 1) {
+        if (dma_hw->ch[dma_channel_adc_].transfer_count & 1) {
             val &= ~0x00007000;
             val |= 1 << 12;
         } else {

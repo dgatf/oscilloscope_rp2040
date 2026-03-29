@@ -1,0 +1,72 @@
+name: Dev Release
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - master
+    paths:
+      - src/**
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: dev-release-firmware
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Build firmware
+        uses: samyarsadat/Pico-Build-Action@v1
+        with:
+          source_dir: "src"
+          output_dir: "../build"
+          cmake_args: "-DCMAKE_BUILD_TYPE=Release"
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p dist
+          cp build/oscilloscope.uf2 dist/oscilloscope.uf2
+
+      - name: Generate attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: dist/oscilloscope.uf2
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write release body
+        run: |
+          cat > release_body.md << EOF
+          Development (auto)
+
+          Firmware:
+          - commit: "${{ github.event.head_commit.message }}"
+          - commit-url: "https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+
+          EOF
+
+      - name: Publish firmware to Development release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: dev-latest
+          name: Development (auto)
+          prerelease: true
+          allowUpdates: true
+          commit: ${{ github.sha }}
+          artifacts: dist/oscilloscope.uf2
+          artifactContentType: application/octet-stream
+          replacesArtifacts: true
+          generateReleaseNotes: false
+          bodyFile: release_body.md

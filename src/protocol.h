@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROTOCOL
-#define PROTOCOL
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,7 +44,6 @@ typedef enum command_t {
 } command_t;
 
 void protocol_task(void);
-void protocol_sample_handler(void);
 void protocol_init(uint8_t *buffer);
 void protocol_complete_handler(void);
 

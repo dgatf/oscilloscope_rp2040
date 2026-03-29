@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef OSCILLOSCOPE
-#define OSCILLOSCOPE
+#ifndef OSCILLOSCOPE_H
+#define OSCILLOSCOPE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,11 +26,9 @@ extern "C" {
 #include "common.h"
 
 #define BUFFER_RING_BITS 15
-#define BUFFER_SIZE (1 << BUFFER_RING_BITS)  // 1024 bytes
+#define BUFFER_SIZE (1u << BUFFER_RING_BITS)  // 32 KiB
 
 typedef enum state_t { IDLE, RUNNING } state_t;
-
-typedef void (*complete_handler_t)(void);
 
 void oscilloscope_init(void);
 void oscilloscope_start(void);

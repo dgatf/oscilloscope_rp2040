@@ -1,0 +1,48 @@
+name: Build Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  FIRMWARE_FILENAME: oscilloscope_${{ github.ref_name }}.uf2
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get actions code
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Git tags
+        run: git fetch --prune --unshallow
+
+      - name: Build firmware
+        uses: samyarsadat/Pico-Build-Action@v1
+        with:
+          source_dir: "src"
+          output_dir: "../build"
+          cmake_args: "-DCMAKE_BUILD_TYPE=Release"
+      
+      - name: Set version
+        run: sudo mv build/oscilloscope.uf2 build/oscilloscope_${{ github.ref_name }}.uf2
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/oscilloscope_${{ github.ref_name }}.uf2
+            
+      - name: Generate attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: build/oscilloscope_${{ github.ref_name }}.uf2
+          github-token: ${{ secrets.TOKEN }}
+        

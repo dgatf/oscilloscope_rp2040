@@ -51,3 +51,15 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 pico_set_binary_type(${PROJECT_NAME} copy_to_ram)
+
+execute_process(
+    COMMAND git config --global --add safe.directory /github/workspace
+    COMMAND git describe --tags
+    OUTPUT_VARIABLE PROJECT_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+message(STATUS "Oscilloscope ${PROJECT_VERSION}") 
+add_compile_definitions(PROJECT_VERSION="${PROJECT_VERSION}")
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

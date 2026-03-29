@@ -42,7 +42,6 @@ static void acknowledge_out_request(void);
 static void acknowledge_in_request(void);
 static void prepare_control_packet(volatile struct usb_setup_packet *pkt);
 static void ep0_in_handler(uint8_t *buf, uint16_t len);
-static void ep0_in_handler(uint8_t *buf, uint16_t len);
 static inline uint get_ep_bit(struct usb_endpoint_configuration *ep);
 static inline bool is_ep0(struct usb_endpoint_configuration *ep);
 static volatile uint32_t *get_endpoint_control(struct usb_endpoint_configuration *ep);
@@ -78,7 +77,7 @@ void isr_usbctrl(void) {
     }
 }
 
-static inline uint32_t buffer_offset(volatile uint8_t *buf) { return (uint32_t)buf ^ (uint32_t)usb_dpram; }
+static inline uint32_t buffer_offset(volatile uint8_t *buf) { return (uint32_t)buf - (uint32_t)usb_dpram; }
 
 static inline bool ep_is_tx(struct usb_endpoint_configuration *ep) {
     return ep->descriptor->bEndpointAddress & USB_DIR_IN;
@@ -130,7 +129,7 @@ static volatile uint32_t *get_buffer_control(struct usb_endpoint_configuration *
 }
 
 static volatile uint8_t *get_dpram_buffer(struct usb_endpoint_configuration *ep) {
-    static uint i = 0;
+    static uint i = 0;  // Only used during init, not reentrant
     if (is_ep0(ep)) return &usb_dpram->ep0_buf_a[0];
     uint pre = i;
     i += ep->descriptor->wMaxPacketSize >> 6;
@@ -524,7 +523,7 @@ void usb_continue_transfer(struct usb_endpoint_configuration *ep) { start_data_p
 void usb_cancel_transfer(struct usb_endpoint_configuration *ep) {
     usb_hw_clear->buf_status = ep->bit;
     usb_hw_clear->buf_status = ep->bit;
-    ep->buffer_control = 0;
+    *ep->buffer_control = 0;
 }
 
 uint8_t usb_get_address(void) { return dev_addr; }
