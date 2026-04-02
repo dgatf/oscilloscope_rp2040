@@ -44,7 +44,7 @@ jobs:
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/oscilloscope.uf2
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.TOKEN }}
 
       - name: Write release body
         run: |
