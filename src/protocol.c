@@ -336,13 +336,7 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
     }
 }
 
-void protocol_complete_handler(void) {
-    sample_count_ += BULK_SIZE;
-    if (sample_count_ % 20000 > 19900 && sample_count_ - ep->pos > BUFFER_SIZE >> 2) {
-        is_adc_paused = true;
-        adc_run(false);
-    }
-}
+void protocol_complete_handler(void) { sample_count_ += BULK_SIZE; }
 
 void protocol_init(uint8_t *buffer) {
     buffer_ = buffer;

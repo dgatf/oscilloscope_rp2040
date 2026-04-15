@@ -321,8 +321,7 @@ static void start_data_packet(struct usb_endpoint_configuration *ep) {
         } else
             val |= USB_BUF_CTRL_AVAIL;
         val |= (ep->descriptor->wMaxPacketSize >> 8) << 11;
-        *ep->buffer_control &= ~0xFFFF0000;
-        *ep->buffer_control |= val << 16;
+        *ep->buffer_control = (*ep->buffer_control & (uint32_t)0xFFFF) | (val << 16);
     }
 
     if (len > ep->descriptor->wMaxPacketSize ||
@@ -345,8 +344,9 @@ static void start_data_packet(struct usb_endpoint_configuration *ep) {
         val |= (ep->next_pid ? USB_BUF_CTRL_DATA1_PID : USB_BUF_CTRL_DATA0_PID);
         val |= (ep->descriptor->wMaxPacketSize >> 8) << 11;
         ep->next_pid ^= 1u;
-        *ep->buffer_control &= ~0xFFFF0000;
-        *ep->buffer_control |= val << 16;
+        *ep->buffer_control = (*ep->buffer_control & (uint32_t)0xFFFF) | (val << 16);
+        if (ep->double_buffer && !ep->data_buffer)
+            *ep->buffer_control |= USB_BUF_CTRL_AVAIL << 16;
     }
     ep->pos_send += len;
     ep->is_start = false;
