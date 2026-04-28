@@ -218,5 +218,5 @@ void oscilloscope_set_coupling(channel_t channel, coupling_t coupling) {
 
 static inline void complete_handler(void) {
     dma_hw->ints0 = 1u << dma_channel_adc_;
-    protocol_complete_handler();
+    protocol_adc_complete_handler();
 }

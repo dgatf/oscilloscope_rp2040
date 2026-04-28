@@ -7,10 +7,10 @@
  */
 
 #include "usb_config.h"
+#include "protocol.h"
 
 static uint8_t ep0_buf[256];
-
-void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
+static uint8_t ep6_buf[PACKET_CHUNK_SIZE];
 
 static struct usb_device_configuration dev_config = {
     .device_descriptor = &device_descriptor,
@@ -33,7 +33,8 @@ static struct usb_device_configuration dev_config = {
                   },
                   {
                       .descriptor = &ep6_in,
-                      .handler = NULL,
+                      .handler = &ep6_in_handler,
                       .double_buffer = true,
-                      .data_buffer = NULL,
+                      .data_buffer = ep6_buf,
+                      .data_buffer_size = sizeof(ep6_buf),
                   }}};

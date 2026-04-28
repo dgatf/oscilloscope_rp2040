@@ -4,8 +4,11 @@ An oscilloscope for the RP2040 that implements the [OpenHantek6022](https://gith
 
 ## Specifications
 
-- 1 MS/s. Reliable operation up to 500 kS/s. Higher sampling rates may drop samples due to RP2040 USB full-speed limitations
+- Up to 1 MS/s
+- Reliable operation up to 500 kS/s
+- 1 MS/s works with the updated USB transfer handling, but some samples may still be dropped due to RP2040 USB full-speed bandwidth limits
 - 2 channels
+- OpenHantek6022-compatible protocol
 
 ## Usage
 
@@ -15,29 +18,29 @@ An oscilloscope for the RP2040 that implements the [OpenHantek6022](https://gith
    [OpenHantek6022 fork](https://github.com/dgatf/OpenHantek6022)
 
    - Build OpenHantek following the project instructions.
-
    - Or download prebuilt [binaries](https://github.com/dgatf/OpenHantek6022/releases).
 
 3. The external circuit is optional. If you are **not** using the [external circuit](#external-circuit), copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to:
-    - Linux: `~/.config/OpenHantek/`
-    - Windows: `%USERPROFILE%\.config\OpenHantek`
+
+   - Linux: `~/.config/OpenHantek/`
+   - Windows: `%USERPROFILE%\.config\OpenHantek`
 
 4. Launch the modified version of OpenHantek6022.
 
-__Pins__
+## Pins
 
-- Channel 1 -> GPIO 26
-- Channel 2 -> GPIO 27
-- Calibration signal -> GPIO 22
-- No conversion -> GPIO 19
-- Debug enable/disable -> GPIO 18
-- Debug output -> GPIO 16
+- Channel 1: GPIO 26
+- Channel 2: GPIO 27
+- Calibration signal: GPIO 22
+- No conversion: GPIO 19
+- Debug enable/disable: GPIO 18
+- Debug output: GPIO 16
 
-Without the [external circuit](#external-circuit), voltage at the channels (GPIO 26 & 27) must be between 0 and 3.3V.
+Without the [external circuit](#external-circuit), the input voltage on GPIO 26 and GPIO 27 must stay between 0 V and 3.3 V.
 
-Debug output is on GPIO 16 at 57600 bps. To enable debug, connect GPIO 18 to ground at boot.
+Debug output is available on GPIO 16 at 115200 bps. To enable debug output, connect GPIO 18 to GND at boot.
 
-The LED is on during the capture process.
+The LED is on during capture.
 
 <p align="center"><img src="./images/circuit.png" width="600"><br></p>
 
@@ -45,50 +48,67 @@ The LED is on during the capture process.
 
 ## External circuit
 
-Configure the input signal from +3.3V-0V to +5V-5V and add AC coupling.
-
-For the gain, an op-amp could be added, but since we have a 12-bit ADC on the RP2040, the value will be scaled from 12 bits to 8 bits. Maximum gain is 16. For higher gains, use an additional op-amp before centering the signal.
+The external circuit adapts the input signal from ±5 V to the RP2040 ADC range and adds AC/DC coupling.
 
 Signal conversion:
 
-- Step down from 5V to 3.3V
+- Step down from 5 V to 3.3 V
 - AC/DC coupling
-- Gain (not designed)
-- Center and scale zero voltage to Vcc/2
+- Optional gain stage
+- Center zero voltage at VCC/2
 
-__Materials__
+The RP2040 ADC is 12-bit, while OpenHantek expects 8-bit samples. The firmware scales the ADC value from 12 bits to 8 bits. Maximum digital gain is 16. For higher gains, use an additional analog gain stage before centering the signal.
 
-- 1 x IC switch CD4066
-- 1 x op-amp LM358
-- 2 x ceramic capacitor 100nF
-- 6 x 10k resistor
-- 2 x 33k resistor
-- 2 x 22k resistor
+### Materials
 
-Delete the calibration file if it was already copied to the *config* folder.
+- 1 x CD4066 analog switch
+- 1 x LM358 op-amp
+- 2 x 100 nF ceramic capacitor
+- 6 x 10 kΩ resistor
+- 2 x 33 kΩ resistor
+- 2 x 22 kΩ resistor
 
-__Pins__
+If the calibration file was previously copied to the OpenHantek config folder, delete it when using the external circuit.
 
-- AC/DC coupling channel 1 -> GPIO 20
-- AC/DC coupling channel 2 -> GPIO 21
+### Pins
+
+- AC/DC coupling channel 1: GPIO 20
+- AC/DC coupling channel 2: GPIO 21
 
 <p align="center"><img src="./images/external_circuit.png" width="600"><br></p>
 
 ## Calibration file OpenHantek
 
-If not using the external circuit, we need to convert the signal from +3.3V-0V to +5V-5V. In order to use the full range (0-255), the conversion is done with the calibration file. Set the offsets to -127 and gains to 0.33.
+If the external circuit is not used, OpenHantek needs a calibration file to map the RP2040 0-3.3 V ADC input to the expected ±5 V range.
 
-Copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to *~/.config/OpenHantek/ (Linux)* or *%USERPROFILE%\.config\OpenHantek* (Windows).
+Copy [RP2040_0_calibration.ini](RP2040_0_calibration.ini) to:
 
-If using the external circuit, set the offsets to 0 and gains to 1, or delete the calibration file.
+- Linux: `~/.config/OpenHantek/`
+- Windows: `%USERPROFILE%\.config\OpenHantek`
 
-## Remarks
+The calibration file sets:
 
-RP2040 is overclocked to 240MHz. Use at your own risk.
+- Offset: `-127`
+- Gain: `0.33`
 
-For rates of 1 MS/s and higher, some samples are dropped. This is a limitation of the RP2040 full-speed USB.
+If using the external circuit, set offsets to `0` and gains to `1`, or delete the calibration file.
 
-For rates over 500 kS/s, the ADC is overclocked to 240MHz. It may be less accurate.
+## Notes
+
+- The firmware uses fixed-length USB transfers. Streaming is implemented at the application level by re-arming transfers.
+- Double-buffered USB transfers improve stability and reduce buffer overflows.
+- At 1 MS/s, operation is usable but may still show occasional dropped samples due to USB full-speed bandwidth limits.
+- For rates above ~500 kS/s, the ADC operates at higher clock speeds, which may slightly affect accuracy.
+- **Linux:** if the device is not detected, install the appropriate [udev rules](udev/99-openhantek.rules) under `/etc/udev/rules.d/` and reconnect the device.
+- **Windows:** you may need to install a WinUSB-compatible driver using Zadig.
+
+Example Linux setup:
+
+```bash
+sudo cp udev/99-openhantek.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
 
 ## Binaries
 

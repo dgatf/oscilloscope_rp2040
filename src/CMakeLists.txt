@@ -53,8 +53,7 @@ target_link_libraries(${PROJECT_NAME}
 pico_set_binary_type(${PROJECT_NAME} copy_to_ram)
 
 execute_process(
-    COMMAND git config --global --add safe.directory /github/workspace
-    COMMAND git describe --tags
+    COMMAND git describe --tags --abbrev=0 --match "v[0-9]*"
     OUTPUT_VARIABLE PROJECT_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )

@@ -30,11 +30,11 @@ char debug_message_[DEBUG_BUFFER_SIZE];
 static void set_pin_config(void);
 
 int main() {
-    if (clock_get_hz(clk_sys) != 240000000) set_sys_clock_khz(240000, true);
+    if (clock_get_hz(clk_sys) != 100000000u) set_sys_clock_khz(100000u, true);
     set_pin_config();
-    config_.is_multicore = true;
+    config_.is_multicore = false;
 
-    debug_init(57600, debug_message_, &config_.debug_is_enabled);
+    debug_init(115200, debug_message_, &config_.debug_is_enabled);
     debug("\n\n%s - v%s", DEVICE_NAME, PROJECT_VERSION);
 
     usb_device_init();
@@ -49,7 +49,8 @@ int main() {
     oscilloscope_init();
 
     while (1) {
-        if (!config_.is_multicore) protocol_task();
+        tight_loop_contents();
+        //protocol_task();
     }
 }
 

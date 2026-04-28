@@ -32,10 +32,12 @@ extern "C" {
 #define PACKET_SIZE_ISO_128 128
 #define PACKET_SIZE_ISO_256 256
 #define PACKET_SIZE_ISO_512 512
-#define UNKNOWN_SIZE -1
 
 typedef void (*usb_ep_handler)(uint8_t *buf, uint16_t len);
 typedef void (*usb_control_transfer_handler)(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
+
+void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
+void ep6_in_handler(uint8_t *buf, uint16_t len);
 
 static const struct usb_endpoint_descriptor ep0_out = {.bLength = sizeof(struct usb_endpoint_descriptor),
                                                        .bDescriptorType = USB_DT_ENDPOINT,
@@ -69,8 +71,8 @@ struct usb_endpoint_configuration {
     bool double_buffer;
     uint8_t next_pid;
     int32_t length;
-    int32_t pos;
-    int32_t pos_send;
+    int32_t queued_pos;
+    int32_t completed_pos;
     bool is_start;
     bool is_completed;
     uint status;

@@ -35,117 +35,38 @@ extern config_t config_;
 extern volatile oscilloscope_config_t oscilloscope_config_;
 extern char debug_message_[DEBUG_BUFFER_SIZE];
 
-static volatile uint8_t *buffer_;
-static volatile uint sample_count_ = 0, channel_factor_[2];
+static volatile uint8_t *buffer_adc;
+static volatile uint sample_count = 0, channel_factor[2];
 static struct usb_endpoint_configuration *ep;
-static volatile bool should_stop = false;
-static critical_section_t lock;
-static volatile bool is_adc_paused = false;
+static uint bof = 0;
+static uint64_t ts;
+static uint buffer_size, queued_count = 0;
+static uint8_t *buffer_usb;
+static uint buffer_usb_size;
 
-static void core1_entry(void);
-static void prepare_buffers(void);
-static void fill_buffer(volatile uint8_t *buffer, uint length);
+static inline void fill_buffer_usb(volatile uint8_t *buffer_usb, volatile uint8_t *buffer_adc, uint length);
 
-static void core1_entry(void) {
-    while (1) {
-        protocol_task();
-    }
+void ep6_in_handler(uint8_t *buf, uint16_t len) {
+    // queued_count += len;
+    // debug("\nUSB transfer completed. len: %u Sample count: %u Queued count: %u OBF: %u", len, sample_count,
+    // queued_count, bof);
 }
 
-void protocol_task(void) {
-    if (config_.is_multicore) critical_section_enter_blocking(&lock);
-    if (is_adc_paused && sample_count_ - ep->pos < BUFFER_SIZE >> 5) {
-        is_adc_paused = false;
-        adc_run(true);
-    }
-    if ((!ep->double_buffer && sample_count_ - ep->pos >= BULK_SIZE * 2) ||
-        (ep->double_buffer &&
-         (ep->pos_send - ep->pos == BULK_SIZE || ep->status == STATUS_OK || ep->pos_send == ep->length)) &&
-            (sample_count_ - ep->pos >= BULK_SIZE * 2)) {
-        if (config_.no_conversion) {
-            if (sample_count_ - ep->pos > BUFFER_SIZE) {
-                ep->pos += BUFFER_SIZE;
-                ep->pos_send += BUFFER_SIZE;
-                debug("\nBOF");
-            }
-            prepare_buffers();
-        } else {
-            if (sample_count_ - ep->pos > (BUFFER_SIZE >> 1)) {
-                ep->pos += BUFFER_SIZE >> 1;
-                ep->pos_send += BUFFER_SIZE >> 1;
-                debug("\nBOF");
-            }
-            prepare_buffers();
-        }
-    }
-    if (config_.is_multicore) critical_section_exit(&lock);
-}
-
-static void fill_buffer(volatile uint8_t *buffer, uint length) {
+static inline void fill_buffer_usb(volatile uint8_t *buffer_usb, volatile uint8_t *buffer_adc, uint length) {
     if (config_.no_conversion) {
-        uint pos = ep->pos_send % BUFFER_SIZE;
-        for (uint i = 0; i < length; i++) *(buffer + i) = *(buffer_ + pos + i);
+        for (uint i = 0; i < length; i++) *(buffer_usb + i) = *(buffer_adc + i);
     } else {
-        uint pos = ep->pos_send % (BUFFER_SIZE >> 1);
         uint ch_gain;
         for (uint i = 0; i < length; i++) {
             if (oscilloscope_config_.channel_mask == 0b11 && (i % 2))
                 ch_gain = oscilloscope_config_.ch_gain[CHANNEL2];
             else
                 ch_gain = oscilloscope_config_.ch_gain[CHANNEL1];
-            uint16_t *buffer_pos = (void *)buffer_;
-            buffer_pos += pos + i;
+            uint16_t *buffer_pos = (void *)buffer_adc;
+            buffer_pos += i;
             uint16_t value = (*buffer_pos * ch_gain) >> 4;
             if (value > 0xFF) value = 0xFF;
-            *(buffer + i) = value;
-        }
-    }
-}
-
-static inline void prepare_buffers(void) {
-    if (should_stop) {
-        ep->length = ep->pos_send + 124;
-        should_stop = false;
-    }
-    if (ep->is_completed) {
-        oscilloscope_stop();
-        sample_count_ = 0;
-        ep->pos = 0;
-        ep->pos_send = 0;
-        ep->status = STATUS_OK;
-        ep->next_pid = 0;
-        ep->is_completed = false;
-        *ep->buffer_control = 0;
-        ep->length = UNKNOWN_SIZE;
-        return;
-    }
-    if (ep->status == STATUS_BUSY) {
-        if (!ep->double_buffer) {
-            if (!(*ep->buffer_control & USB_BUF_CTRL_AVAIL)) {
-                fill_buffer(ep->dpram_buffer_a, BULK_SIZE);
-                usb_continue_transfer(ep);
-            }
-        } else {
-            if (!ep->next_pid) {
-                if (!((*ep->buffer_control) & USB_BUF_CTRL_AVAIL)) {
-                    fill_buffer(ep->dpram_buffer_a, BULK_SIZE);
-                    usb_continue_transfer(ep);
-                }
-            } else {
-                if (!((*ep->buffer_control >> 16) & USB_BUF_CTRL_AVAIL)) {
-                    fill_buffer(ep->dpram_buffer_b, BULK_SIZE);
-                    usb_continue_transfer(ep);
-                }
-            }
-        }
-    } else {
-        if (!ep->double_buffer) {
-            debug("\nINIT %u %u", sample_count_, ep->pos);
-            fill_buffer(ep->dpram_buffer_a, BULK_SIZE);
-            usb_init_transfer(ep, UNKNOWN_SIZE);
-        } else if (sample_count_ >= BULK_SIZE * 2) {
-            fill_buffer(ep->dpram_buffer_a, BULK_SIZE * 2);
-            usb_init_transfer(ep, UNKNOWN_SIZE);
+            *(buffer_usb + i) = value;
         }
     }
 }
@@ -186,7 +107,7 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
                         break;
                 }
                 // To use full range (0-255), signal center and step down is done in openhantek with calibration file
-                channel_factor_[CHANNEL1] = 16 / oscilloscope_config_.ch_gain[CHANNEL1];
+                channel_factor[CHANNEL1] = 16 / oscilloscope_config_.ch_gain[CHANNEL1];
                 debug("\nCommand set gain ch1 (0x%X): %u", value, oscilloscope_config_.ch_gain[CHANNEL1]);
                 break;
             }
@@ -212,7 +133,7 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
                         break;
                 }
                 // To use full range (0-255), signal center and step down is done in openhantek with calibration file
-                channel_factor_[CHANNEL2] = 16 / oscilloscope_config_.ch_gain[CHANNEL2];
+                channel_factor[CHANNEL2] = 16 / oscilloscope_config_.ch_gain[CHANNEL2];
                 debug("\nCommand set gain ch2 (0x%X): %u", value, oscilloscope_config_.ch_gain[CHANNEL2]);
                 break;
             }
@@ -269,17 +190,22 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
                 if (buf[0] == 1) {
                     if (oscilloscope_state() == IDLE) {
                         debug("\nCommand start sampling");
-                        sample_count_ = 0;
-
+                        ts = time_us_64();
                         oscilloscope_start();
                         debug("\nOscilloscope start. Samplerate: %u Ch1: %s Ch2: %s", oscilloscope_config_.samplerate,
                               (oscilloscope_config_.channel_mask & 0B01) ? "enabled" : "disabled",
                               (oscilloscope_config_.channel_mask & 0B010) ? "enabled" : "disabled");
+                    } else if (oscilloscope_state() == RUNNING) {
+                        // usb_init_transfer(ep, pkt->wLength);
+                        // debug("\nContinue sampling. wLength: %u", pkt->wLength);
                     }
                 } else {
                     if (oscilloscope_state() == RUNNING) {
-                        debug("\nCommand stop sampling");
-                        should_stop = true;
+                        debug("\nCommand stop sampling. OBF %d OBF/s %.1f", bof,
+                              bof / ((time_us_64() - ts) / 1000000.0f));
+                        // should_stop = true;
+                        oscilloscope_stop();
+                        usb_cancel_transfer(EP6_IN_ADDR);
                     }
                 }
                 break;
@@ -336,12 +262,46 @@ void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pk
     }
 }
 
-void protocol_complete_handler(void) { sample_count_ += BULK_SIZE; }
+void protocol_adc_complete_handler(void) {
+    uint adc_pos;
+    if (config_.no_conversion) {
+        adc_pos = sample_count % BUFFER_SIZE;
+    } else {
+        adc_pos = (sample_count % (BUFFER_SIZE >> 1)) * 2;
+    }
+    static uint usb_pos = 0;
+
+    if (usb_pos + BULK_SIZE <= buffer_usb_size) {
+        fill_buffer_usb(buffer_usb + usb_pos, buffer_adc + adc_pos, BULK_SIZE);
+        usb_pos += BULK_SIZE;
+    }
+    sample_count += BULK_SIZE;
+    
+    uint pending = sample_count - queued_count;
+    if (pending > buffer_size) {
+        queued_count += buffer_size;
+        bof++;
+    }
+
+    if (sample_count - queued_count >= PACKET_CHUNK_SIZE && !usb_is_busy(EP6_IN_ADDR)) {
+        if (usb_init_transfer(EP6_IN_ADDR, PACKET_CHUNK_SIZE)) {
+            // debug("\nUSB transfer started. Sample count: %u Queued count: %u OBF: %u", sample_count, queued_count,
+            // bof);
+            usb_pos = 0;
+            queued_count += PACKET_CHUNK_SIZE;
+        }
+    }
+}
 
 void protocol_init(uint8_t *buffer) {
-    buffer_ = buffer;
-    ep = usb_get_endpoint_configuration(EP6_IN_ADDR);
-    ep->pos = 0;
-    critical_section_init(&lock);
-    if (config_.is_multicore) multicore_launch_core1(core1_entry);
+    buffer_usb = usb_get_endpoint_buffer(EP6_IN_ADDR);
+    buffer_usb_size = usb_get_endpoint_buffer_size(EP6_IN_ADDR);
+    buffer_adc = buffer;
+    if (config_.no_conversion) {
+        buffer_size = BUFFER_SIZE;
+    } else {
+        buffer_size = BUFFER_SIZE >> 1;
+    }
 }
+
+void protocol_task(void) {}

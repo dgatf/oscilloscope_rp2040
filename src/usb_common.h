@@ -1,6 +1,6 @@
 /**
- * Copyright (c) 2024 Daniel Gorbea
- * 
+ * Copyright (c) 2024-2026 Daniel Gorbea
+ *
  * Copyright (c) 2020 Raspberry Pi (Trading) Ltd. author of https://github.com/raspberrypi/pico-examples/tree/master/usb
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -59,6 +59,22 @@
 #define USB_FEAT_TEST_MODE 0x02
 
 #define USB_DESCRIPTOR_TYPE_ENDPOINT 0x05
+
+#define STAGE_SETUP 0
+#define STAGE_DATA 1
+#define STAGE_STATUS 2
+
+#define STATUS_OK 0
+#define STATUS_BUSY 1
+#define STATUS_BUFFER_OVERFLOW 2
+#define STATUS_LENGTH_OVERFLOW 3
+
+#define PACKET_SIZE_CONTROL 64
+#define PACKET_SIZE_INTERRUPT 64
+#define PACKET_SIZE_BULK 64
+#define PACKET_SIZE_ISO_128 128
+#define PACKET_SIZE_ISO_256 256
+#define PACKET_SIZE_ISO_512 512
 
 struct usb_setup_packet {
     uint8_t bmRequestType;
@@ -132,5 +148,8 @@ struct usb_endpoint_descriptor_long {
     uint8_t bRefresh;
     uint8_t bSyncAddr;
 } __attribute__((packed));
+
+typedef void (*usb_ep_handler)(uint8_t *buf, uint16_t len);
+typedef void (*usb_control_transfer_handler)(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
 
 #endif

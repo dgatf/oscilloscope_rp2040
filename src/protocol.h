@@ -28,6 +28,8 @@ extern "C" {
 
 #define BULK_SIZE 64
 
+#define PACKET_CHUNK_SIZE (BUFFER_SIZE / 2) + (BUFFER_SIZE / 4)
+
 typedef enum command_t {
     SET_GAIN_CH1,
     SET_GAIN_CH2,
@@ -45,7 +47,7 @@ typedef enum command_t {
 
 void protocol_task(void);
 void protocol_init(uint8_t *buffer);
-void protocol_complete_handler(void);
+void protocol_adc_complete_handler(void);
 
 #ifdef __cplusplus
 }
