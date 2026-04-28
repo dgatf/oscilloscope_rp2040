@@ -21,6 +21,7 @@ bool usb_init_transfer(uint8_t addr, uint len);
 void usb_cancel_transfer(uint8_t addr);
 uint8_t usb_get_address(void);
 uint8_t *usb_get_endpoint_buffer(uint8_t addr);
+void usb_set_endpoint_buffer(uint8_t addr, uint8_t *buf);
 uint usb_get_endpoint_buffer_size(uint8_t addr);
 bool usb_is_busy(uint8_t addr);
 
