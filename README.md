@@ -93,9 +93,6 @@ If using the external circuit, set offsets to `0` and gains to `1`, or delete th
 
 ## Notes
 
-- The firmware uses fixed-length USB transfers. Streaming is implemented at the application level by re-arming transfers.
-- Double-buffered USB transfers improve stability and reduce buffer overflows.
-- At 1 MS/s, operation is usable but may still show occasional dropped samples due to USB full-speed bandwidth limits.
 - For rates above ~500 kS/s, the ADC operates at higher clock speeds, which may slightly affect accuracy.
 - **Linux:** if the device is not detected, install the appropriate [udev rules](udev/99-openhantek.rules) under `/etc/udev/rules.d/` and reconnect the device.
 - **Windows:** you may need to install a WinUSB-compatible driver using Zadig.
