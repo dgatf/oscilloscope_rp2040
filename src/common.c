@@ -25,16 +25,15 @@
 #include "hardware/uart.h"
 #include "pico/stdlib.h"
 
-static char *buffer_;
-static bool *is_enabled_;
-static uint baudrate_;
-
+static char *s_buffer_debug;
+static bool *s_is_enabled;
+static uint s_baudrate;
 
 void debug_init(uint baudrate, char *buffer, bool *is_enabled) {
-    buffer_ = buffer;
-    baudrate_ = baudrate;
-    is_enabled_ = is_enabled;
-    if (*is_enabled_) {
+    s_buffer_debug = buffer;
+    s_baudrate = baudrate;
+    s_is_enabled = is_enabled;
+    if (*s_is_enabled) {
         uart_init(uart0, baudrate);
         uart_set_fifo_enabled(uart0, true);
         gpio_set_function(16, GPIO_FUNC_UART);
@@ -43,32 +42,32 @@ void debug_init(uint baudrate, char *buffer, bool *is_enabled) {
 }
 
 void debug_reinit(void) {
-    if (*is_enabled_) {
-        uart_init(uart0, baudrate_);
+    if (*s_is_enabled) {
+        uart_init(uart0, s_baudrate);
         uart_set_fifo_enabled(uart0, true);
         gpio_set_function(16, GPIO_FUNC_UART);
     }
 }
 
 void debug(const char *format, ...) {
-    if (*is_enabled_) {
+    if (*s_is_enabled) {
         va_list args;
         va_start(args, format);
-        vsprintf(buffer_, format, args);
-        uart_puts(uart0, buffer_);
+        vsprintf(s_buffer_debug, format, args);
+        uart_puts(uart0, s_buffer_debug);
         va_end(args);
     }
 }
 
 void debug_block(const char *format, ...) {
-    if (*is_enabled_) {
+    if (*s_is_enabled) {
         va_list args;
         va_start(args, format);
-        vsprintf(buffer_, format, args);
-        uart_puts(uart0, buffer_);
+        vsprintf(s_buffer_debug, format, args);
+        uart_puts(uart0, s_buffer_debug);
         uart_tx_wait_blocking(uart0);
         va_end(args);
     }
 }
 
-bool debug_is_enabled(void) { return *is_enabled_; }
+bool debug_is_enabled(void) { return *s_is_enabled; }

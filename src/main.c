@@ -23,18 +23,18 @@
 
 typedef enum gpio_config_t { GPIO_DEBUG_ENABLE = 18, GPIO_NO_CONVERSION = 19 } gpio_config_t;
 
-config_t config_;
-volatile oscilloscope_config_t oscilloscope_config_;
-char debug_message_[DEBUG_BUFFER_SIZE];
+config_t config;
+volatile oscilloscope_config_t oscilloscope_config;
+char debug_message[DEBUG_BUFFER_SIZE];
 
 static void set_pin_config(void);
 
 int main() {
     if (clock_get_hz(clk_sys) != 100000000u) set_sys_clock_khz(100000u, true);
     set_pin_config();
-    config_.is_multicore = false;
+    config.is_multicore = false;
 
-    debug_init(115200, debug_message_, &config_.debug_is_enabled);
+    debug_init(115200, debug_message, &config.debug_is_enabled);
     debug("\n\n%s - v%s", DEVICE_NAME, PROJECT_VERSION);
 
     usb_device_init();
@@ -50,7 +50,6 @@ int main() {
 
     while (1) {
         tight_loop_contents();
-        //protocol_task();
     }
 }
 
@@ -60,8 +59,8 @@ static void set_pin_config(void) {
     gpio_pull_up(GPIO_DEBUG_ENABLE);
     gpio_pull_up(GPIO_NO_CONVERSION);
     sleep_ms(1);  // wait for pullup
-    config_.debug_is_enabled = false;
-    config_.no_conversion = false;
-    if (!gpio_get(GPIO_DEBUG_ENABLE)) config_.debug_is_enabled = true;
-    if (!gpio_get(GPIO_NO_CONVERSION)) config_.no_conversion = true;
+    config.debug_is_enabled = false;
+    config.no_conversion = false;
+    if (!gpio_get(GPIO_DEBUG_ENABLE)) config.debug_is_enabled = true;
+    if (!gpio_get(GPIO_NO_CONVERSION)) config.no_conversion = true;
 }

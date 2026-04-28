@@ -5,8 +5,6 @@ An oscilloscope for the RP2040 that implements the [OpenHantek6022](https://gith
 ## Specifications
 
 - Up to 1 MS/s
-- Reliable operation up to 500 kS/s
-- 1 MS/s works with the updated USB transfer handling, but some samples may still be dropped due to RP2040 USB full-speed bandwidth limits
 - 2 channels
 - OpenHantek6022-compatible protocol
 

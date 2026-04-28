@@ -28,7 +28,7 @@ extern "C" {
 
 #define BULK_SIZE 64
 
-#define PACKET_CHUNK_SIZE (BUFFER_SIZE / 2) + (BUFFER_SIZE / 4)
+#define PACKET_CHUNK_SIZE (BUFFER_SIZE / 2)
 
 typedef enum command_t {
     SET_GAIN_CH1,

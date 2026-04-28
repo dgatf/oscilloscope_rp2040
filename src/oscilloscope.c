@@ -30,16 +30,15 @@
 #define GPIO_COUPLING_CH2_DC 21
 #define GPIO_CALIBRATION 22
 
-extern config_t config_;
-extern volatile oscilloscope_config_t oscilloscope_config_;
-extern char debug_message_[DEBUG_BUFFER_SIZE];
+extern config_t config;
+extern volatile oscilloscope_config_t oscilloscope_config;
+extern char debug_message[DEBUG_BUFFER_SIZE];
 
-static const uint dma_channel_adc_ = 0, dma_channel_reload_adc_counter_ = 1, reload_counter_ = BULK_SIZE;
-static uint slice_num_;
-static state_t state_ = IDLE;
+static const uint dma_channel_adc = 0, dma_channel_reload_adc_counter = 1, reload_counter = BULK_SIZE;
+static uint slice_num;
+static state_t state = IDLE;
 static uint8_t buffer_[BUFFER_SIZE] __attribute__((aligned(BUFFER_SIZE * sizeof(uint8_t)))) = {0};
 static volatile uint32_t *clk_adc_ctrl = (volatile uint32_t *)(CLOCKS_BASE + CLOCKS_CLK_ADC_CTRL_OFFSET);
-static void (*handler_)(void) = NULL;
 
 static inline void complete_handler(void);
 
@@ -59,20 +58,20 @@ void oscilloscope_init(void) {
     gpio_put(GPIO_COUPLING_CH2_DC, false);
 
     // calibration pwm
-    oscilloscope_config_.calibration_freq = 1000;
+    oscilloscope_config.calibration_freq = 1000;
     gpio_set_function(GPIO_CALIBRATION, GPIO_FUNC_PWM);
-    slice_num_ = pwm_gpio_to_slice_num(GPIO_CALIBRATION);
+    slice_num = pwm_gpio_to_slice_num(GPIO_CALIBRATION);
 
     protocol_init(buffer_);
 }
 
 void oscilloscope_start(void) {
-    state_ = RUNNING;
+    state = RUNNING;
 
     // adc setup
     adc_run(false);
     adc_fifo_drain();
-    if (config_.no_conversion) {
+    if (config.no_conversion) {
         adc_fifo_setup(true,   // write to FIFO
                        true,   // enable DMA DREQ
                        1,      // assert DREQ (and IRQ) at least 1 sample present
@@ -88,23 +87,23 @@ void oscilloscope_start(void) {
         );
     }
 
-    uint ch_count = (oscilloscope_config_.channel_mask == 0b11) ? 2 : 1;
-    oscilloscope_set_samplerate(oscilloscope_config_.samplerate * ch_count);
+    uint ch_count = (oscilloscope_config.channel_mask == 0b11) ? 2 : 1;
+    oscilloscope_set_samplerate(oscilloscope_config.samplerate * ch_count);
 
     // dma channel adc reload counter
     dma_channel_config config_dma_channel_reload_adc_counter =
-        dma_channel_get_default_config(dma_channel_reload_adc_counter_);
+        dma_channel_get_default_config(dma_channel_reload_adc_counter);
     channel_config_set_transfer_data_size(&config_dma_channel_reload_adc_counter, DMA_SIZE_32);
     channel_config_set_write_increment(&config_dma_channel_reload_adc_counter, false);
     channel_config_set_read_increment(&config_dma_channel_reload_adc_counter, false);
-    dma_channel_configure(dma_channel_reload_adc_counter_, &config_dma_channel_reload_adc_counter,
-                          &dma_hw->ch[dma_channel_adc_].al1_transfer_count_trig,  // write address
-                          &reload_counter_,                                       // read address
+    dma_channel_configure(dma_channel_reload_adc_counter, &config_dma_channel_reload_adc_counter,
+                          &dma_hw->ch[dma_channel_adc].al1_transfer_count_trig,  // write address
+                          &reload_counter,                                       // read address
                           1, false);
 
     // dma channel adc
-    dma_channel_config channel_config_adc = dma_channel_get_default_config(dma_channel_adc_);
-    if (config_.no_conversion)
+    dma_channel_config channel_config_adc = dma_channel_get_default_config(dma_channel_adc);
+    if (config.no_conversion)
         channel_config_set_transfer_data_size(&channel_config_adc, DMA_SIZE_8);
     else
         channel_config_set_transfer_data_size(&channel_config_adc, DMA_SIZE_16);
@@ -113,39 +112,39 @@ void oscilloscope_start(void) {
     channel_config_set_read_increment(&channel_config_adc, false);
     channel_config_set_dreq(&channel_config_adc, DREQ_ADC);
     channel_config_set_chain_to(&channel_config_adc,
-                                dma_channel_reload_adc_counter_);  // reload counter when completed
-    dma_channel_set_irq0_enabled(dma_channel_adc_, true);          // raise an interrupt when completed
+                                dma_channel_reload_adc_counter);  // reload counter when completed
+    dma_channel_set_irq0_enabled(dma_channel_adc, true);          // raise an interrupt when completed
     irq_set_exclusive_handler(DMA_IRQ_0, complete_handler);
     irq_set_enabled(DMA_IRQ_0, true);
-    dma_channel_configure(dma_channel_adc_, &channel_config_adc,
+    dma_channel_configure(dma_channel_adc, &channel_config_adc,
                           &buffer_,       // write address
                           &adc_hw->fifo,  // read address
                           BULK_SIZE, true);
 
-    adc_set_round_robin(oscilloscope_config_.channel_mask);
+    adc_set_round_robin(oscilloscope_config.channel_mask);
     adc_run(true);
 
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
 }
 
 void oscilloscope_stop(void) {
-    dma_channel_abort(dma_channel_adc_);
+    dma_channel_abort(dma_channel_adc);
     adc_run(false);
     irq_set_enabled(DMA_IRQ_0, false);
     irq_clear(DMA_IRQ_0);
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
-    state_ = IDLE;
+    state = IDLE;
     debug("\nOscilloscope stop");
 }
 
 void oscilloscope_task(void) { protocol_task(); }
 
-state_t oscilloscope_state(void) { return state_; }
+state_t oscilloscope_state(void) { return state; }
 
 void oscilloscope_set_samplerate(uint samplerate) {
     float clk_div;
     if (!samplerate) {
-        oscilloscope_config_.samplerate = 100000;
+        oscilloscope_config.samplerate = 100000;
         samplerate = 100000;
     }
     if (samplerate > 500e3) {
@@ -170,7 +169,7 @@ void oscilloscope_set_channels(uint8_t mask) {
         adc_run(false);
         val &= ~0x001f0000;
         val |= 0b11 << 16;
-        if (dma_hw->ch[dma_channel_adc_].transfer_count & 1) {
+        if (dma_hw->ch[dma_channel_adc].transfer_count & 1) {
             val &= ~0x00007000;
             val |= 1 << 12;
         } else {
@@ -183,7 +182,7 @@ void oscilloscope_set_channels(uint8_t mask) {
 
 void oscilloscope_set_calibration_frequency(uint freq) {
     if (freq == 0) freq = 100;  // Hz
-    oscilloscope_config_.calibration_freq = freq;
+    oscilloscope_config.calibration_freq = freq;
     float clk_div = clock_get_hz(clk_sys) / freq / 65536.0;
     pwm_config config = pwm_get_default_config();
     uint16_t wrap;
@@ -196,7 +195,7 @@ void oscilloscope_set_calibration_frequency(uint freq) {
         pwm_config_set_wrap(&config, wrap);
     }
     pwm_config_set_clkdiv(&config, clk_div);
-    pwm_init(slice_num_, &config, true);
+    pwm_init(slice_num, &config, true);
     pwm_set_gpio_level(GPIO_CALIBRATION, wrap / 2);
 
     debug("\nSet calibration frequency: %u Hz Clk div: %.2f Wrap: %u", freq, clk_div, wrap);
@@ -217,6 +216,6 @@ void oscilloscope_set_coupling(channel_t channel, coupling_t coupling) {
 }
 
 static inline void complete_handler(void) {
-    dma_hw->ints0 = 1u << dma_channel_adc_;
+    dma_hw->ints0 = 1u << dma_channel_adc;
     protocol_adc_complete_handler();
 }
