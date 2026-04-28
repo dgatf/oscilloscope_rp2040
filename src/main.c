@@ -35,7 +35,7 @@ int main() {
     config.is_multicore = false;
 
     debug_init(115200, debug_message, &config.debug_is_enabled);
-    debug("\n\n%s - v%s", DEVICE_NAME, PROJECT_VERSION);
+    debug("\n\n%s - %s", DEVICE_NAME, PROJECT_VERSION);
 
     usb_device_init();
     while (!usb_is_configured()) {
