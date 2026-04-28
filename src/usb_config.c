@@ -10,7 +10,6 @@
 #include "protocol.h"
 
 static uint8_t ep0_buf[256];
-static uint8_t ep6_buf[PACKET_CHUNK_SIZE];
 
 static struct usb_device_configuration dev_config = {
     .device_descriptor = &device_descriptor,
@@ -35,6 +34,6 @@ static struct usb_device_configuration dev_config = {
                       .descriptor = &ep6_in,
                       .handler = &ep6_in_handler,
                       .double_buffer = true,
-                      .data_buffer = ep6_buf,
-                      .data_buffer_size = sizeof(ep6_buf),
+                      .data_buffer = NULL,
+                      .data_buffer_size = PACKET_CHUNK_SIZE,
                   }}};

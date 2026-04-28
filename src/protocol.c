@@ -41,7 +41,11 @@ static struct usb_endpoint_configuration *ep;
 static uint bof = 0;
 static uint64_t ts;
 static uint buffer_size, queued_count = 0;
-static uint8_t *buffer_usb;
+static uint8_t ping_buf[PACKET_CHUNK_SIZE];
+static uint8_t pong_buf[PACKET_CHUNK_SIZE];
+static uint8_t *fill_buf = ping_buf;
+static uint8_t *send_buf = pong_buf;
+static uint usb_pos = 0;
 static uint buffer_usb_size;
 
 static inline void fill_buffer_usb(volatile uint8_t *buffer_usb, volatile uint8_t *buffer_adc, uint length);
@@ -50,7 +54,7 @@ void ep6_in_handler(uint8_t *buf, uint16_t len) {}
 
 static inline void fill_buffer_usb(volatile uint8_t *buffer_usb, volatile uint8_t *buffer_adc, uint length) {
     if (config.no_conversion) {
-        for (uint i = 0; i < length; i++) *(buffer_usb + i) = *(buffer_adc + i);
+        memcpy((void *)buffer_usb, (void *)buffer_adc, length);
     } else {
         uint ch_gain;
         for (uint i = 0; i < length; i++) {
@@ -263,10 +267,9 @@ void protocol_adc_complete_handler(void) {
     } else {
         adc_pos = (sample_count % (BUFFER_SIZE >> 1)) * 2;
     }
-    static uint usb_pos = 0;
 
     if (usb_pos + BULK_SIZE <= buffer_usb_size) {
-        fill_buffer_usb(buffer_usb + usb_pos, buffer_adc + adc_pos, BULK_SIZE);
+        fill_buffer_usb(fill_buf + usb_pos, buffer_adc + adc_pos, BULK_SIZE);
         usb_pos += BULK_SIZE;
     }
     sample_count += BULK_SIZE;
@@ -277,18 +280,31 @@ void protocol_adc_complete_handler(void) {
         bof++;
     }
 
-    if (sample_count - queued_count >= PACKET_CHUNK_SIZE && !usb_is_busy(EP6_IN_ADDR)) {
-        if (usb_init_transfer(EP6_IN_ADDR, PACKET_CHUNK_SIZE)) {
+    if (usb_pos >= buffer_usb_size) {
+        if (!usb_is_busy(EP6_IN_ADDR)) {
+            uint8_t *tmp = fill_buf;
+            fill_buf = send_buf;
+            send_buf = tmp;
+            usb_pos = 0;
+            usb_set_endpoint_buffer(EP6_IN_ADDR, send_buf);
+            usb_init_transfer(EP6_IN_ADDR, PACKET_CHUNK_SIZE);
+            queued_count += PACKET_CHUNK_SIZE;
+        } else {
+            // USB still busy: discard this chunk (should not happen when USB throughput > sample rate).
+            // fill_buf is safe to overwrite from position 0 — USB is reading send_buf, not fill_buf.
             usb_pos = 0;
             queued_count += PACKET_CHUNK_SIZE;
+            bof++;
         }
     }
 }
 
 void protocol_init(uint8_t *buffer) {
-    buffer_usb = usb_get_endpoint_buffer(EP6_IN_ADDR);
-    buffer_usb_size = usb_get_endpoint_buffer_size(EP6_IN_ADDR);
     buffer_adc = buffer;
+    buffer_usb_size = usb_get_endpoint_buffer_size(EP6_IN_ADDR);
+    fill_buf = ping_buf;
+    send_buf = pong_buf;
+    usb_pos = 0;
     if (config.no_conversion) {
         buffer_size = BUFFER_SIZE;
     } else {

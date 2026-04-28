@@ -546,6 +546,12 @@ uint8_t *usb_get_endpoint_buffer(uint8_t addr) {
     return ep->data_buffer;
 }
 
+void usb_set_endpoint_buffer(uint8_t addr, uint8_t *buf) {
+    struct usb_endpoint_configuration *ep = usb_get_endpoint_configuration(addr);
+    if (!ep) return;
+    ep->data_buffer = buf;
+}
+
 uint usb_get_endpoint_buffer_size(uint8_t addr) {
     struct usb_endpoint_configuration *ep = usb_get_endpoint_configuration(addr);
     if (!ep) return 0;
