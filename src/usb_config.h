@@ -15,26 +15,7 @@ extern "C" {
 
 #include "usb_common.h"
 
-#define EP0_IN_ADDR (USB_DIR_IN | 0)
-#define EP0_OUT_ADDR (USB_DIR_OUT | 0)
 #define EP6_IN_ADDR (USB_DIR_IN | 6)
-
-#define STAGE_SETUP 0
-#define STAGE_DATA 1
-#define STAGE_STATUS 2
-#define STATUS_OK 0
-#define STATUS_BUSY 1
-#define STATUS_BUFFER_OVERFLOW 2
-#define STATUS_LENGTH_OVERFLOW 3
-#define PACKET_SIZE_CONTROL 64
-#define PACKET_SIZE_INTERRUPT 64
-#define PACKET_SIZE_BULK 64
-#define PACKET_SIZE_ISO_128 128
-#define PACKET_SIZE_ISO_256 256
-#define PACKET_SIZE_ISO_512 512
-
-typedef void (*usb_ep_handler)(uint8_t *buf, uint16_t len);
-typedef void (*usb_control_transfer_handler)(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
 
 void control_transfer_handler(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
 void ep6_in_handler(uint8_t *buf, uint16_t len);
@@ -59,36 +40,6 @@ static const struct usb_endpoint_descriptor ep6_in = {.bLength = sizeof(struct u
                                                       .bmAttributes = USB_TRANSFER_TYPE_BULK,
                                                       .wMaxPacketSize = PACKET_SIZE_BULK,
                                                       .bInterval = 1};
-
-struct usb_endpoint_configuration {
-    const struct usb_endpoint_descriptor *descriptor;
-    usb_ep_handler handler;
-    volatile uint32_t *endpoint_control;
-    volatile uint32_t *buffer_control;
-    volatile uint8_t *dpram_buffer_a;
-    volatile uint8_t *dpram_buffer_b;
-    uint8_t *data_buffer;
-    bool double_buffer;
-    uint8_t next_pid;
-    int32_t length;
-    int32_t queued_pos;
-    int32_t completed_pos;
-    bool is_start;
-    bool is_completed;
-    uint status;
-    uint data_buffer_size;
-    uint bit;
-};
-
-struct usb_device_configuration {
-    const struct usb_device_descriptor *device_descriptor;
-    const struct usb_interface_descriptor *interface_descriptor;
-    const struct usb_configuration_descriptor *config_descriptor;
-    const unsigned char *lang_descriptor;
-    const unsigned char **descriptor_strings;
-    struct usb_endpoint_configuration endpoints[USB_NUM_ENDPOINTS];
-    usb_control_transfer_handler control_transfer_handler;
-};
 
 static const struct usb_device_descriptor device_descriptor = {
     .bLength = sizeof(struct usb_device_descriptor),
@@ -137,6 +88,8 @@ static const unsigned char *descriptor_strings[] = {
     (unsigned char *)"RP2040 Oscilloscope",  // Product
     (unsigned char *)"0"                     // Serial
 };
+
+extern struct usb_device_configuration dev_configs[];
 
 #ifdef __cplusplus
 }
