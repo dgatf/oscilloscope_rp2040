@@ -1,6 +1,6 @@
 /*
  * Oscilloscope RP2040
- * Copyright (C) 2024 Daniel Gorbea <danielgorbea@hotmail.com>
+ * Copyright (C) 2024-2026 Daniel Gorbea <danielgorbea@hotmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

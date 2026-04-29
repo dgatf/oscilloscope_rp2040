@@ -1,5 +1,5 @@
 {
-    "cmake.sourceDirectory": "${workspaceFolder}/src",
+    "cmake.sourceDirectory": "${workspaceFolder}",
     "cmake.options.statusBarVisibility" : "visible",
     "C_Cpp.autoAddFileAssociations" : false
 }

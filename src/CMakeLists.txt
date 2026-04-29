@@ -1,45 +1,24 @@
- 
- # Oscilloscope RP2040
- # Copyright (C) 2024 Daniel Gorbea <danielgorbea@hotmail.com>
- # 
- # This program is free software: you can redistribute it and/or modify
- # it under the terms of the GNU General Public License as published by
- # the Free Software Foundation, either version 3 of the License, or
- # (at your option) any later version.
- # 
- # This program is distributed in the hope that it will be useful,
- # but WITHOUT ANY WARRANTY; without even the implied warranty of
- # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- # GNU General Public License for more details.
- # 
- # You should have received a copy of the GNU General Public License
- # along with this program.  If not, see <http://www.gnu.org/licenses/>.
- 
+# Oscilloscope RP2040
+# Copyright (C) 2024-2026 Daniel Gorbea <danielgorbea@hotmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 
-cmake_minimum_required(VERSION 3.12)
-
-include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
-
-project(oscilloscope C CXX ASM)
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
-
-pico_sdk_init()
-
-add_executable(${PROJECT_NAME} 
+add_executable(${PROJECT_NAME}
     main.c
     common.c
     oscilloscope.c
     protocol.c
-    usb.c
     usb_config.c
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}
+)
 
-pico_add_extra_outputs(${PROJECT_NAME})
-
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     pico_multicore
     hardware_irq
@@ -48,17 +27,21 @@ target_link_libraries(${PROJECT_NAME}
     hardware_dma
     hardware_adc
     hardware_pwm
+    usb_library_rp2040
 )
+
+pico_add_extra_outputs(${PROJECT_NAME})
 
 pico_set_binary_type(${PROJECT_NAME} copy_to_ram)
 
 execute_process(
     COMMAND git describe --tags --abbrev=0 --match "v[0-9]*"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT_VARIABLE PROJECT_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-message(STATUS "Oscilloscope ${PROJECT_VERSION}") 
-add_compile_definitions(PROJECT_VERSION="${PROJECT_VERSION}")
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+message(STATUS "Oscilloscope ${PROJECT_VERSION}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PROJECT_VERSION="${PROJECT_VERSION}"
+)

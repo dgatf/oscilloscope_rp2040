@@ -1,0 +1,3 @@
+[submodule "external/usb_library_rp2040"]
+	path = external/usb_library_rp2040
+	url = https://github.com/dgatf/usb_library_rp2040
