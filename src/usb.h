@@ -13,9 +13,9 @@
 extern "C" {
 #endif
 
-#include "usb_config.h"
+#include "usb_common.h"
 
-void usb_device_init(void);
+void usb_device_init(struct usb_device_configuration *configs);
 bool usb_is_configured(void);
 bool usb_init_transfer(uint8_t addr, uint len);
 void usb_cancel_transfer(uint8_t addr);

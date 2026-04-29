@@ -152,4 +152,37 @@ struct usb_endpoint_descriptor_long {
 typedef void (*usb_ep_handler)(uint8_t *buf, uint16_t len);
 typedef void (*usb_control_transfer_handler)(uint8_t *buf, volatile struct usb_setup_packet *pkt, uint8_t stage);
 
+#define EP0_IN_ADDR (USB_DIR_IN | 0)
+#define EP0_OUT_ADDR (USB_DIR_OUT | 0)
+
+struct usb_endpoint_configuration {
+    const struct usb_endpoint_descriptor *descriptor;
+    usb_ep_handler handler;
+    volatile uint32_t *endpoint_control;
+    volatile uint32_t *buffer_control;
+    volatile uint8_t *dpram_buffer_a;
+    volatile uint8_t *dpram_buffer_b;
+    uint8_t *data_buffer;
+    bool double_buffer;
+    uint8_t next_pid;
+    int32_t length;
+    int32_t queued_pos;
+    int32_t completed_pos;
+    bool is_start;
+    bool is_completed;
+    volatile uint status;
+    uint data_buffer_size;
+    uint bit;
+};
+
+struct usb_device_configuration {
+    const struct usb_device_descriptor *device_descriptor;
+    struct usb_interface_descriptor *interface_descriptor;
+    struct usb_configuration_descriptor *config_descriptor;
+    const unsigned char *lang_descriptor;
+    const unsigned char **descriptor_strings;
+    struct usb_endpoint_configuration endpoints[USB_NUM_ENDPOINTS];
+    usb_control_transfer_handler control_transfer_handler;
+};
+
 #endif

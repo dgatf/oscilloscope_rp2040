@@ -20,6 +20,7 @@
 #include "pico/stdlib.h"
 #include "protocol.h"
 #include "usb.h"
+#include "usb_config.h"
 
 typedef enum gpio_config_t { GPIO_DEBUG_ENABLE = 18, GPIO_NO_CONVERSION = 19 } gpio_config_t;
 
@@ -37,7 +38,7 @@ int main() {
     debug_init(115200, debug_message, &config.debug_is_enabled);
     debug("\n\n%s - %s", DEVICE_NAME, PROJECT_VERSION);
 
-    usb_device_init();
+    usb_device_init(dev_configs);
     while (!usb_is_configured()) {
         tight_loop_contents();
     }
